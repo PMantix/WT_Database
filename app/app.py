@@ -25,17 +25,15 @@ MODE_LABELS = {"br_ab": "Arcade", "br_rb": "Realistic", "br_sb": "Simulator"}
 METRICS: dict[str, tuple[str, bool]] = {
     "max_speed_kmh": ("Top speed (km/h)", False),
     "climb_rate_ms": ("Climb rate (m/s)", False),
+    "climb_time_s": ("Climb time to alt (s)", True),
     "turn_time_s": ("Turn time (s)", True),
-    "wing_rip_kmh": ("Wing-rip speed (km/h)", False),
+    "roll_rate_deg_s": ("Roll rate (°/s)", False),
     "max_altitude_m": ("Service ceiling (m)", False),
-    "engine_power_hp": ("Engine power (hp)", False),
-    "engine_thrust_kgf": ("Thrust (kgf)", False),
-    "mass_takeoff_kg": ("Takeoff mass (kg)", True),
-    "wing_area_m2": ("Wing area (m²)", False),
-    # Derived (computed in get_data):
-    "power_to_weight": ("Power/weight (hp/ton)", False),
-    "thrust_to_weight": ("Thrust/weight (kgf/ton)", False),
-    "wing_loading": ("Wing loading (kg/m²)", True),
+    "wing_loading_kg_m2": ("Wing loading (kg/m²)", True),
+    "power_to_weight_ratio": ("Power/thrust-to-weight", False),
+    "rp_cost": ("Research cost (RP)", True),
+    "sl_cost": ("Purchase cost (SL)", True),
+    "repair_cost_rb": ("Repair cost RB (SL)", True),
     "br_ab": ("BR — Arcade", False),
     "br_rb": ("BR — Realistic", False),
     "br_sb": ("BR — Simulator", False),
@@ -45,17 +43,19 @@ METRICS: dict[str, tuple[str, bool]] = {
 SCATTER_PRESETS: dict[str, tuple[str, str]] = {
     "Speed vs Turn (energy ↔ agility)": ("turn_time_s", "max_speed_kmh"),
     "Climb vs Speed (BnZ potential)": ("max_speed_kmh", "climb_rate_ms"),
-    "Wing loading vs Turn (turn predictor)": ("wing_loading", "turn_time_s"),
-    "Power/weight vs Climb": ("power_to_weight", "climb_rate_ms"),
-    "Speed vs BR (is it fast for its BR?)": ("br_rb", "max_speed_kmh"),
+    "Wing loading vs Turn (turn predictor)": ("wing_loading_kg_m2", "turn_time_s"),
+    "Power-to-weight vs Climb": ("power_to_weight_ratio", "climb_rate_ms"),
+    "Roll rate vs Speed": ("max_speed_kmh", "roll_rate_deg_s"),
+    "Speed vs BR (fast for its BR?)": ("br_rb", "max_speed_kmh"),
     "Turn vs BR (best turner at each BR)": ("br_rb", "turn_time_s"),
     "Climb vs BR (best climber at each BR)": ("br_rb", "climb_rate_ms"),
-    "Wing-rip vs Speed (compression margin)": ("max_speed_kmh", "wing_rip_kmh"),
+    "Research cost vs BR (grind value)": ("br_rb", "rp_cost"),
+    "Repair cost vs BR (SL drain)": ("br_rb", "repair_cost_rb"),
 }
 
 # Metrics shown on the comparison radar.
 RADAR_COLS = [
-    "max_speed_kmh", "climb_rate_ms", "turn_time_s", "wing_rip_kmh", "power_to_weight",
+    "max_speed_kmh", "climb_rate_ms", "turn_time_s", "roll_rate_deg_s", "wing_loading_kg_m2",
 ]
 
 
@@ -68,14 +68,7 @@ def get_data() -> pd.DataFrame:
     df = load_dataframe()
     df["nation"] = df["nation"].str.upper()
     df["aircraft_class"] = df["aircraft_class"].str.replace("_", " ").str.title()
-    df["Type"] = df["is_premium"].map({1: "Premium/Event", 0: "Tech tree"})
-
-    # Derived metrics (guard against divide-by-zero / missing inputs).
-    tons = df["mass_takeoff_kg"] / 1000.0
-    df["power_to_weight"] = (df["engine_power_hp"] / tons).round(1)
-    df["thrust_to_weight"] = (df["engine_thrust_kgf"] / tons).round(1)
-    df["wing_loading"] = (df["mass_takeoff_kg"] / df["wing_area_m2"]).round(1)
-    df = df.replace([float("inf"), float("-inf")], pd.NA)
+    df["Type"] = df["is_premium"].map({1: "Premium/Special", 0: "Tech tree"})
     return df
 
 
@@ -327,16 +320,19 @@ def main() -> None:
     st.subheader("Aircraft table")
     table_cols = [
         "name", "nation", "aircraft_class", "rank", "br_ab", "br_rb", "br_sb",
-        "max_speed_kmh", "climb_rate_ms", "turn_time_s", "armament", "notes",
+        "max_speed_kmh", "climb_rate_ms", "turn_time_s", "roll_rate_deg_s",
+        "wing_loading_kg_m2", "rp_cost", "repair_cost_rb", "notes",
     ]
     st.dataframe(
         filtered[table_cols].sort_values(mode_col).reset_index(drop=True),
         use_container_width=True,
-        height=420,
+        height=440,
     )
     st.caption(
-        "Seed data is hand-entered and approximate — Phase 2 replaces it with exact "
-        "datamine values. Edit `data/overrides/aircraft.yaml` and re-run the loader to update."
+        f"Data from the War Thunder datamine (version "
+        f"{df['game_version'].dropna().iloc[0] if df['game_version'].notna().any() else '?'}). "
+        "Hand corrections/notes live in `data/overrides/aircraft.yaml`; "
+        "re-run `uv run python -m wtdb.pipeline` after a patch."
     )
 
 

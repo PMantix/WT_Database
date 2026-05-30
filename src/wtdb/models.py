@@ -65,15 +65,21 @@ class Aircraft(Base):
     br_rb: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
     br_sb: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
 
-    # Flight performance (stock/spaded as noted in source) ------------------
+    # Flight performance (from datamine Shop block / overrides) -------------
     max_speed_kmh: Mapped[float | None] = mapped_column(Float, nullable=True)
     max_speed_alt_m: Mapped[float | None] = mapped_column(Float, nullable=True)
     climb_rate_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    climb_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)
     turn_time_s: Mapped[float | None] = mapped_column(Float, nullable=True)
+    roll_rate_deg_s: Mapped[float | None] = mapped_column(Float, nullable=True)
     wing_rip_kmh: Mapped[float | None] = mapped_column(Float, nullable=True)
     max_altitude_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Datamine provides these ratios directly (raw mass/area live in FM files,
+    # parsed in a later phase), so store them natively.
+    wing_loading_kg_m2: Mapped[float | None] = mapped_column(Float, nullable=True)
+    power_to_weight_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # Airframe / engine constants -------------------------------------------
+    # Airframe / engine constants (filled from FM files in a later phase) ----
     mass_empty_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     mass_takeoff_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     wing_area_m2: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -81,6 +87,17 @@ class Aircraft(Base):
     engine_thrust_kgf: Mapped[float | None] = mapped_column(Float, nullable=True)  # jets
     engine_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     crew: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Economy (from wpcost.blkx) --------------------------------------------
+    rp_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)        # reqExp
+    sl_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)        # value (purchase SL)
+    repair_cost_ab: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    repair_cost_rb: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    repair_cost_sb: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    crew_train_sl: Mapped[int | None] = mapped_column(Integer, nullable=True)  # trainCost
+    expert_sl: Mapped[int | None] = mapped_column(Integer, nullable=True)      # train2Cost
+    ace_ge: Mapped[int | None] = mapped_column(Integer, nullable=True)         # train3Cost_gold
+    req_air: Mapped[str | None] = mapped_column(String(64), nullable=True)     # tech-tree prereq
 
     # Armament summary (free text for MVP; normalized in Phase 2) -----------
     armament: Mapped[str | None] = mapped_column(Text, nullable=True)
