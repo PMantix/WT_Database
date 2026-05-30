@@ -1,0 +1,71 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:forum.warthunder.com)",
+      "WebFetch(domain:wiki.warthunder.com)",
+      "WebFetch(domain:warthunder.com)",
+      "WebFetch(domain:thunderskill.com)",
+      "WebFetch(domain:wtvehiclesapi.sgambe.serv00.net)",
+      "WebSearch",
+
+      "Bash(uv:*)",
+      "Bash(uvx:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(py:*)",
+      "Bash(pip:*)",
+      "Bash(pip3:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m pip:*)",
+      "Bash(python -m venv:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(black:*)",
+
+      "Bash(sqlite3:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(streamlit:*)",
+      "Bash(uvicorn:*)",
+
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(test:*)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(curl:*)",
+      "Bash(where:*)",
+      "Bash(echo:*)",
+      "Bash(timeout:*)",
+
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git status:*)",
+      "Bash(git commit:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+
+      "PowerShell",
+
+      "Read",
+      "Edit",
+      "Write"
+    ]
+  }
+}

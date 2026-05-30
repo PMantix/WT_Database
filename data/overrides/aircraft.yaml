@@ -1,0 +1,453 @@
+# =============================================================================
+# Hand-curated aircraft seed data  (Phase 1)
+# =============================================================================
+# These are APPROXIMATE, hand-entered values for a representative cross-section
+# of well-known aircraft, used to stand up the app before the datamine scraper
+# (Phase 2) exists. BRs and flight-model figures drift every patch — treat these
+# as placeholders. The Phase-2 pipeline reads exact values from the datamine and
+# merges this file LAST, so any field you correct here will win over the scrape.
+#
+# Fields: game_id (unique), name, nation, aircraft_class, rank, acquisition,
+#   br_ab/br_rb/br_sb, max_speed_kmh, max_speed_alt_m, climb_rate_ms,
+#   turn_time_s, wing_rip_kmh, mass_takeoff_kg, wing_area_m2, engine_power_hp,
+#   engine_thrust_kgf, engine_count, crew, armament, notes, year.
+# Classes: fighter, interceptor, heavy_fighter, strike_fighter, attacker,
+#   dive_bomber, bomber, jet_fighter, jet_bomber.
+# =============================================================================
+
+# ---- USA --------------------------------------------------------------------
+- game_id: p-26a-34
+  name: "P-26A-34 M2"
+  nation: usa
+  aircraft_class: fighter
+  rank: 1
+  br_ab: 1.3
+  br_rb: 1.7
+  br_sb: 2.0
+  year: 1934
+  max_speed_kmh: 377
+  climb_rate_ms: 11.0
+  turn_time_s: 13.0
+  engine_power_hp: 600
+  engine_count: 1
+  crew: 1
+  armament: "2x 7.62mm or 12.7mm"
+
+- game_id: p-51d-30
+  name: "P-51D-30"
+  nation: usa
+  aircraft_class: fighter
+  rank: 4
+  br_ab: 4.7
+  br_rb: 5.0
+  br_sb: 5.3
+  year: 1944
+  max_speed_kmh: 703
+  max_speed_alt_m: 7600
+  climb_rate_ms: 17.0
+  turn_time_s: 21.0
+  wing_rip_kmh: 974
+  mass_takeoff_kg: 5260
+  wing_area_m2: 21.8
+  engine_power_hp: 1490
+  engine_count: 1
+  crew: 1
+  armament: "6x 12.7mm M2 Browning"
+  notes: "Classic energy fighter / BnZ. Great top speed and dive; do NOT turnfight."
+
+- game_id: p-47d-28
+  name: "P-47D-28"
+  nation: usa
+  aircraft_class: fighter
+  rank: 3
+  br_ab: 3.7
+  br_rb: 4.0
+  br_sb: 4.3
+  year: 1944
+  max_speed_kmh: 689
+  climb_rate_ms: 12.0
+  turn_time_s: 23.0
+  engine_power_hp: 2300
+  engine_count: 1
+  crew: 1
+  armament: "8x 12.7mm M2 Browning"
+  notes: "Heavy BnZ bruiser. Excellent dive and roll, poor climb. Energy fight only."
+
+- game_id: f-86f-25
+  name: "F-86F-25 Sabre"
+  nation: usa
+  aircraft_class: jet_fighter
+  rank: 6
+  br_ab: 8.7
+  br_rb: 8.7
+  br_sb: 9.0
+  year: 1953
+  max_speed_kmh: 1106
+  climb_rate_ms: 38.0
+  turn_time_s: 22.0
+  engine_thrust_kgf: 2680
+  engine_count: 1
+  crew: 1
+  armament: "6x 12.7mm M3 Browning"
+
+# ---- Germany ----------------------------------------------------------------
+- game_id: bf-109e-3
+  name: "Bf 109 E-3"
+  nation: germany
+  aircraft_class: fighter
+  rank: 1
+  br_ab: 2.3
+  br_rb: 2.3
+  br_sb: 2.7
+  year: 1939
+  max_speed_kmh: 547
+  climb_rate_ms: 15.0
+  turn_time_s: 19.5
+  engine_power_hp: 1100
+  engine_count: 1
+  crew: 1
+  armament: "2x 20mm MG-FF + 2x 7.92mm"
+  notes: "Energy fighter. Climbs well, decent at altitude. Avoid sustained turns vs biplanes."
+
+- game_id: bf-109f-4
+  name: "Bf 109 F-4"
+  nation: germany
+  aircraft_class: fighter
+  rank: 3
+  br_ab: 3.7
+  br_rb: 4.0
+  br_sb: 4.3
+  year: 1942
+  max_speed_kmh: 634
+  climb_rate_ms: 19.0
+  turn_time_s: 19.0
+  engine_power_hp: 1350
+  engine_count: 1
+  crew: 1
+  armament: "1x 20mm MG-151 + 2x 7.92mm"
+  notes: "Excellent climber and energy fighter. One of the best F-series."
+
+- game_id: fw-190a-5
+  name: "Fw 190 A-5"
+  nation: germany
+  aircraft_class: fighter
+  rank: 3
+  br_ab: 3.7
+  br_rb: 4.0
+  br_sb: 4.7
+  year: 1943
+  max_speed_kmh: 656
+  climb_rate_ms: 14.0
+  turn_time_s: 22.5
+  engine_power_hp: 1700
+  engine_count: 1
+  crew: 1
+  armament: "4x 20mm + 2x 7.92mm"
+  notes: "Boom-and-zoom. Superb roll rate and firepower. Never turnfight; dive and extend."
+
+- game_id: bf-109g-6
+  name: "Bf 109 G-6"
+  nation: germany
+  aircraft_class: fighter
+  rank: 4
+  br_ab: 4.3
+  br_rb: 4.7
+  br_sb: 5.0
+  year: 1943
+  max_speed_kmh: 630
+  climb_rate_ms: 18.0
+  turn_time_s: 20.0
+  engine_power_hp: 1475
+  engine_count: 1
+  crew: 1
+  armament: "1x 20mm MG-151 + 2x 13mm"
+
+- game_id: ju-87b-2
+  name: "Ju 87 B-2"
+  nation: germany
+  aircraft_class: dive_bomber
+  rank: 1
+  br_ab: 2.3
+  br_rb: 2.3
+  br_sb: 2.3
+  year: 1940
+  max_speed_kmh: 383
+  climb_rate_ms: 6.0
+  turn_time_s: 22.0
+  engine_power_hp: 1200
+  engine_count: 1
+  crew: 2
+  armament: "2x 7.92mm fwd + 1x 7.92mm rear; up to 1000kg bombs"
+  notes: "Stuka. Precision dive bombing of ground/naval targets. Helpless vs fighters."
+
+- game_id: me-262a-1a
+  name: "Me 262 A-1a"
+  nation: germany
+  aircraft_class: jet_fighter
+  rank: 5
+  br_ab: 7.0
+  br_rb: 7.0
+  br_sb: 7.3
+  year: 1944
+  max_speed_kmh: 870
+  climb_rate_ms: 20.0
+  turn_time_s: 30.0
+  engine_thrust_kgf: 1800
+  engine_count: 2
+  crew: 1
+  armament: "4x 30mm MK-108"
+  notes: "First jet. Devastating 30mm. Energy only — slow accel, terrible turn, fragile."
+
+# ---- USSR -------------------------------------------------------------------
+- game_id: i-16-type24
+  name: "I-16 type 24"
+  nation: ussr
+  aircraft_class: fighter
+  rank: 1
+  br_ab: 2.0
+  br_rb: 2.3
+  br_sb: 2.7
+  year: 1939
+  max_speed_kmh: 462
+  climb_rate_ms: 14.0
+  turn_time_s: 17.0
+  engine_power_hp: 1100
+  engine_count: 1
+  crew: 1
+  armament: "2x 20mm ShVAK + 2x 7.62mm"
+  notes: "Rugged turnfighter with hard-hitting cannons. Energy retention is poor."
+
+- game_id: yak-3
+  name: "Yak-3"
+  nation: ussr
+  aircraft_class: fighter
+  rank: 4
+  br_ab: 4.3
+  br_rb: 4.7
+  br_sb: 5.0
+  year: 1944
+  max_speed_kmh: 646
+  climb_rate_ms: 21.0
+  turn_time_s: 17.5
+  engine_power_hp: 1300
+  engine_count: 1
+  crew: 1
+  armament: "1x 20mm ShVAK + 2x 12.7mm"
+  notes: "Premier low-alt dogfighter. Superb climb + turn under 3000m. Fragile, light armament."
+
+- game_id: la-7
+  name: "La-7"
+  nation: ussr
+  aircraft_class: fighter
+  rank: 4
+  br_ab: 5.0
+  br_rb: 5.3
+  br_sb: 5.7
+  year: 1944
+  max_speed_kmh: 661
+  climb_rate_ms: 22.0
+  turn_time_s: 19.0
+  engine_power_hp: 1850
+  engine_count: 1
+  crew: 1
+  armament: "3x 20mm B-20"
+  notes: "Energy fighter with great climb and acceleration at low alt."
+
+- game_id: il-2-1942
+  name: "IL-2 (1942)"
+  nation: ussr
+  aircraft_class: attacker
+  rank: 2
+  br_ab: 2.3
+  br_rb: 2.7
+  br_sb: 3.0
+  year: 1942
+  max_speed_kmh: 414
+  climb_rate_ms: 7.0
+  turn_time_s: 24.0
+  engine_power_hp: 1600
+  engine_count: 1
+  crew: 1
+  armament: "2x 23mm VYa + 2x 7.62mm; bombs/rockets"
+  notes: "Armored ground-attacker (Sturmovik). Tanks rounds; deadly to ground, sluggish in air."
+
+- game_id: mig-15bis
+  name: "MiG-15bis"
+  nation: ussr
+  aircraft_class: jet_fighter
+  rank: 6
+  br_ab: 8.3
+  br_rb: 8.3
+  br_sb: 8.7
+  year: 1950
+  max_speed_kmh: 1076
+  climb_rate_ms: 45.0
+  turn_time_s: 23.0
+  engine_thrust_kgf: 2700
+  engine_count: 1
+  crew: 1
+  armament: "1x 37mm N-37 + 2x 23mm NS-23"
+  notes: "Outstanding climb and acceleration. Hard-hitting but low-velocity guns; snaps in hard maneuvers."
+
+# ---- Britain ----------------------------------------------------------------
+- game_id: hurricane-mk1-late
+  name: "Hurricane Mk I/L"
+  nation: britain
+  aircraft_class: fighter
+  rank: 1
+  br_ab: 1.7
+  br_rb: 2.3
+  br_sb: 2.7
+  year: 1940
+  max_speed_kmh: 511
+  climb_rate_ms: 12.0
+  turn_time_s: 17.5
+  engine_power_hp: 1030
+  engine_count: 1
+  crew: 1
+  armament: "8x 7.7mm Browning"
+  notes: "Forgiving turnfighter. Stable gun platform, gentle stall. Weak rifle-caliber armament."
+
+- game_id: spitfire-mk5b
+  name: "Spitfire Mk Vb/trop"
+  nation: britain
+  aircraft_class: fighter
+  rank: 2
+  br_ab: 3.3
+  br_rb: 3.7
+  br_sb: 4.0
+  year: 1941
+  max_speed_kmh: 602
+  climb_rate_ms: 17.0
+  turn_time_s: 17.5
+  engine_power_hp: 1470
+  engine_count: 1
+  crew: 1
+  armament: "2x 20mm Hispano + 4x 7.7mm"
+  notes: "Excellent turnfighter and climber. Out-turns most contemporaries; energy is mediocre."
+
+- game_id: spitfire-mk9
+  name: "Spitfire F Mk IX"
+  nation: britain
+  aircraft_class: fighter
+  rank: 3
+  br_ab: 4.7
+  br_rb: 5.0
+  br_sb: 5.3
+  year: 1942
+  max_speed_kmh: 657
+  climb_rate_ms: 20.0
+  turn_time_s: 18.5
+  engine_power_hp: 1720
+  engine_count: 1
+  crew: 1
+  armament: "2x 20mm Hispano + 2x 12.7mm"
+  notes: "All-rounder: great climb and turn. Can hang with 109s/190s if you keep energy."
+
+- game_id: tempest-mk5
+  name: "Tempest Mk V"
+  nation: britain
+  aircraft_class: fighter
+  rank: 4
+  br_ab: 5.3
+  br_rb: 5.7
+  br_sb: 6.0
+  year: 1944
+  max_speed_kmh: 695
+  climb_rate_ms: 18.0
+  turn_time_s: 22.0
+  engine_power_hp: 2180
+  engine_count: 1
+  crew: 1
+  armament: "4x 20mm Hispano Mk V"
+  notes: "Fast BnZ with brutal 20mm battery. Great dive/roll; mediocre sustained turn."
+
+# ---- Japan ------------------------------------------------------------------
+- game_id: ki-43-2
+  name: "Ki-43-II"
+  nation: japan
+  aircraft_class: fighter
+  rank: 1
+  br_ab: 1.7
+  br_rb: 2.3
+  br_sb: 2.7
+  year: 1942
+  max_speed_kmh: 536
+  climb_rate_ms: 15.0
+  turn_time_s: 14.5
+  engine_power_hp: 1150
+  engine_count: 1
+  crew: 1
+  armament: "2x 12.7mm Ho-103"
+  notes: "Phenomenal turnfighter (combat flaps). Tiny armament; never try to BnZ in it."
+
+- game_id: a6m2-zero
+  name: "A6M2 Zero"
+  nation: japan
+  aircraft_class: fighter
+  rank: 1
+  br_ab: 2.7
+  br_rb: 3.0
+  br_sb: 3.3
+  year: 1940
+  max_speed_kmh: 533
+  climb_rate_ms: 15.5
+  turn_time_s: 15.5
+  engine_power_hp: 950
+  engine_count: 1
+  crew: 1
+  armament: "2x 20mm Type 99 + 2x 7.7mm"
+  notes: "Iconic turnfighter with cannons. Rips wings in high-speed dives — stay slow and turn."
+
+- game_id: a6m5-zero
+  name: "A6M5 Zero"
+  nation: japan
+  aircraft_class: fighter
+  rank: 2
+  br_ab: 3.7
+  br_rb: 4.0
+  br_sb: 4.3
+  year: 1943
+  max_speed_kmh: 565
+  climb_rate_ms: 16.0
+  turn_time_s: 16.5
+  engine_power_hp: 1130
+  engine_count: 1
+  crew: 1
+  armament: "2x 20mm Type 99 + 2x 13.2mm"
+
+- game_id: ki-84-ko
+  name: "Ki-84-I ko"
+  nation: japan
+  aircraft_class: fighter
+  rank: 3
+  br_ab: 4.3
+  br_rb: 4.7
+  br_sb: 5.0
+  year: 1944
+  max_speed_kmh: 660
+  climb_rate_ms: 19.0
+  turn_time_s: 18.0
+  engine_power_hp: 1900
+  engine_count: 1
+  crew: 1
+  armament: "2x 20mm Ho-5 + 2x 12.7mm"
+  notes: "Rare Japanese all-rounder: fast, climbs, AND turns. Energy fights and dogfights both."
+
+- game_id: j2m3-raiden
+  name: "J2M3 Raiden"
+  nation: japan
+  aircraft_class: interceptor
+  rank: 3
+  br_ab: 4.3
+  br_rb: 4.7
+  br_sb: 5.0
+  year: 1944
+  max_speed_kmh: 612
+  climb_rate_ms: 21.0
+  turn_time_s: 20.0
+  engine_power_hp: 1820
+  engine_count: 1
+  crew: 1
+  armament: "4x 20mm (2x Ho-5 + 2x Type 99)"
+  notes: "Interceptor: superb climb and heavy cannon battery. Climb to alt, dive on bombers/fighters."

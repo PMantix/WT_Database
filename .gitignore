@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Project data artifacts (regenerable; not committed)
+wt.db
+wt.db-wal
+wt.db-shm
+data/raw/
+data/datamine/
+
+# Streamlit run logs
+.streamlit_run.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
