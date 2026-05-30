@@ -34,3 +34,16 @@ def test_app_runs_with_radar_selection():
         if len(opts) >= 2:
             ms.set_value([opts[0], opts[1]]).run()
     assert not at.exception, f"App raised on interaction: {at.exception}"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+@pytest.mark.parametrize("chart_index", [0, 1, 2])  # Scatter, Ranking, Parallel
+def test_app_each_chart_type_runs(chart_index):
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    # The chart-type radio is the one whose options start with "Scatter".
+    chart_radio = next(
+        (r for r in at.radio if r.options and r.options[0].startswith("Scatter")), None
+    )
+    assert chart_radio is not None, "chart-type radio not found"
+    chart_radio.set_value(chart_radio.options[chart_index]).run()
+    assert not at.exception, f"Chart '{chart_radio.options[chart_index]}' raised: {at.exception}"
