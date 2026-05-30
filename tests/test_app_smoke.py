@@ -76,6 +76,16 @@ def test_app_side_views_run():
 
 
 @pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+@pytest.mark.parametrize("fit", ["Plane (linear)", "Quadratic surface"])
+def test_app_response_surface_runs(fit):
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    sb = next((s for s in at.selectbox if "response surface" in (s.label or "").lower()), None)
+    assert sb is not None, "response-surface selectbox not found (3D should be default)"
+    sb.set_value(fit).run()
+    assert not at.exception, f"Surface fit '{fit}' raised: {at.exception}"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
 def test_app_highlight_and_matchup_runs():
     at = AppTest.from_file(str(APP), default_timeout=30).run()
     # The scatter highlight multiselect is the one whose label has the magnifier.

@@ -13,6 +13,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from wtdb.analysis import response_surface
 from wtdb.db import load_dataframe
 
 st.set_page_config(page_title="WT Aircraft Explorer", page_icon="✈️", layout="wide")
@@ -212,6 +213,7 @@ def _scatter(
     z: str | None = None,
     highlight: list[str] | None = None,
     side_views: bool = False,
+    surface_degree: int | None = None,
 ) -> None:
     """Render a 2D or 3D (when ``z`` set) scatter, with optional 2D side views."""
     is_3d = z is not None
@@ -228,6 +230,24 @@ def _scatter(
 
     main_height = 760 if is_3d else 620
     fig = _scatter_fig(df, axes, color, size, hi_rows, height=main_height)
+
+    if is_3d and surface_degree:
+        surf = response_surface(df, x, y, z, surface_degree)
+        if surf is None:
+            st.caption("Not enough points in the current filter to fit a surface.")
+        else:
+            gx, gy, gz, r2 = surf
+            fig.add_trace(go.Surface(
+                x=gx, y=gy, z=gz, opacity=0.45, showscale=False,
+                colorscale="Blues", name="fit", hoverinfo="skip",
+                contours={"z": {"show": True, "usecolormap": True, "project_z": True}},
+            ))
+            kind = "quadratic surface" if surface_degree >= 2 else "best-fit plane"
+            st.caption(
+                f"Overlaid **{kind}** fit of {_label(z)} vs {_label(x)} & {_label(y)} "
+                f"— R² = {r2:.2f} (how much of {_label(z)} the other two explain)."
+            )
+
     st.plotly_chart(fig, use_container_width=True)
 
     if is_3d and side_views:
@@ -406,10 +426,17 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
             format_func=lambda c: "(none)" if c == "(none)" else _label(c),
             index=(metric_cols.index(mode_col) + 1), key="sc_size",
         )
+        surface_degree = None
         if use_3d:
-            side_views = st.checkbox(
+            sc1, sc2 = st.columns(2)
+            side_views = sc1.checkbox(
                 "Show 2D side views (X·Y, X·Z, Y·Z projections)", value=False, key="sc_sides"
             )
+            fit_choice = sc2.selectbox(
+                "Fit response surface", ["Off", "Plane (linear)", "Quadratic surface"],
+                index=0, key="sc_surf",
+            )
+            surface_degree = {"Plane (linear)": 1, "Quadratic surface": 2}.get(fit_choice)
 
         all_names = sorted(get_data()["name"].dropna().unique().tolist())
         highlight = st.multiselect(
@@ -417,7 +444,8 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
             all_names, key="sc_hi", max_selections=8,
         )
         _scatter(df, x, y, color_by, None if size_by == "(none)" else size_by,
-                 z=z, highlight=highlight, side_views=side_views)
+                 z=z, highlight=highlight, side_views=side_views,
+                 surface_degree=surface_degree)
         matchup_notes(highlight)
 
     elif chart.startswith("Ranking"):
