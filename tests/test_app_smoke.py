@@ -47,3 +47,23 @@ def test_app_each_chart_type_runs(chart_index):
     assert chart_radio is not None, "chart-type radio not found"
     chart_radio.set_value(chart_radio.options[chart_index]).run()
     assert not at.exception, f"Chart '{chart_radio.options[chart_index]}' raised: {at.exception}"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+def test_app_3d_toggle_runs():
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    cb = next((c for c in at.checkbox if "3D" in (c.label or "")), None)
+    assert cb is not None, "3D checkbox not found"
+    cb.set_value(True).run()
+    assert not at.exception, f"3D scatter raised: {at.exception}"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+def test_app_highlight_and_matchup_runs():
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    # The scatter highlight multiselect is the one whose label has the magnifier.
+    hi = next((m for m in at.multiselect if "highlight" in (m.label or "").lower()), None)
+    assert hi is not None, "highlight multiselect not found"
+    if len(hi.options) >= 2:
+        hi.set_value([hi.options[0], hi.options[1]]).run()  # triggers matchup notes
+    assert not at.exception, f"Highlight/matchup raised: {at.exception}"

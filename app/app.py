@@ -116,40 +116,89 @@ def sidebar_filters(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     return df[mask].copy(), mode_col
 
 
-def _scatter(df: pd.DataFrame, x: str, y: str, color: str, size: str | None) -> None:
-    needed = [c for c in (x, y, size) if c]
+HIGHLIGHT_PALETTE = px.colors.qualitative.Bold
+
+
+def _add_highlight_overlay(fig, axes: tuple[str, ...], highlight_rows: pd.DataFrame, is_3d: bool):
+    """Dim the base cloud and pop the highlighted aircraft with labels."""
+    if highlight_rows.empty:
+        return
+    fig.update_traces(marker_opacity=0.18, selector=dict(mode="markers"))
+    x, y = axes[0], axes[1]
+    z = axes[2] if is_3d else None
+    for i, (_, r) in enumerate(highlight_rows.iterrows()):
+        color = HIGHLIGHT_PALETTE[i % len(HIGHLIGHT_PALETTE)]
+        if any(pd.isna(r[a]) for a in axes):
+            continue
+        if is_3d:
+            fig.add_trace(go.Scatter3d(
+                x=[r[x]], y=[r[y]], z=[r[z]], mode="markers+text",
+                text=[r["name"]], textposition="top center", name=r["name"],
+                marker=dict(size=9, color=color, line=dict(width=2, color="white")),
+            ))
+        else:
+            fig.add_trace(go.Scatter(
+                x=[r[x]], y=[r[y]], mode="markers+text",
+                text=[r["name"]], textposition="top center", name=r["name"],
+                marker=dict(size=18, color=color, line=dict(width=2, color="white")),
+            ))
+
+
+def _scatter(
+    df: pd.DataFrame,
+    x: str,
+    y: str,
+    color: str,
+    size: str | None,
+    z: str | None = None,
+    highlight: list[str] | None = None,
+) -> None:
+    """2D or 3D (when ``z`` set) scatter with optional highlighting."""
+    is_3d = z is not None
+    axes = (x, y, z) if is_3d else (x, y)
+    needed = [c for c in (x, y, z, size) if c]
     plot_df = df.dropna(subset=needed)
-    if plot_df.empty:
-        st.info(
-            f"No aircraft in the current filter have data for both "
-            f"**{_label(x)}** and **{_label(y)}**."
-        )
+
+    full = get_data()
+    highlight = highlight or []
+    hi_rows = full[full["name"].isin(highlight)].drop_duplicates(subset="name")
+
+    if plot_df.empty and hi_rows.empty:
+        missing = " / ".join(_label(a) for a in axes)
+        st.info(f"No aircraft in the current filter have data for {missing}.")
         return
 
     size_arg = plot_df[size].clip(lower=0.1) if size else None
-    fig = px.scatter(
-        plot_df,
-        x=x,
-        y=y,
+    hover = {"nation": True, "aircraft_class": True, "br_rb": ":.1f"}
+    common = dict(
         color=color,
-        symbol="aircraft_class" if color != "aircraft_class" else None,
-        size=size_arg,
         hover_name="name",
-        hover_data={
-            "nation": True,
-            "aircraft_class": True,
-            "br_rb": ":.1f",
-            x: ":.1f",
-            y: ":.1f",
-        },
-        labels={x: _label(x), y: _label(y), "nation": "Nation"},
-        height=580,
+        hover_data=hover,
+        labels={a: _label(a) for a in axes} | {"nation": "Nation"},
+        height=640 if is_3d else 580,
     )
-    # For "lower is better" axes, reverse so "good" is up/right.
-    if METRICS.get(x, ("", False))[1]:
-        fig.update_xaxes(autorange="reversed")
-    if METRICS.get(y, ("", False))[1]:
-        fig.update_yaxes(autorange="reversed")
+    if is_3d:
+        fig = px.scatter_3d(plot_df, x=x, y=y, z=z, size=size_arg, **common)
+        fig.update_traces(marker=dict(line=dict(width=0)))
+        scene = {}
+        for axis, col in (("xaxis", x), ("yaxis", y), ("zaxis", z)):
+            ax = dict(title=_label(col))
+            if METRICS.get(col, ("", False))[1]:
+                ax["autorange"] = "reversed"
+            scene[axis] = ax
+        fig.update_layout(scene=scene)
+    else:
+        fig = px.scatter(
+            plot_df, x=x, y=y, size=size_arg,
+            symbol="aircraft_class" if color != "aircraft_class" else None,
+            **common,
+        )
+        if METRICS.get(x, ("", False))[1]:
+            fig.update_xaxes(autorange="reversed")
+        if METRICS.get(y, ("", False))[1]:
+            fig.update_yaxes(autorange="reversed")
+
+    _add_highlight_overlay(fig, axes, hi_rows, is_3d)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -192,6 +241,84 @@ def _parallel(df: pd.DataFrame, cols: list[str], color_metric: str) -> None:
     st.caption("Each vertical axis is one metric; each line is an aircraft. Drag along an axis to brush-filter.")
 
 
+def _advantage(a, b, col: str, unit: str, threshold: float):
+    """Return (winner_name, magnitude_str) for a metric, honoring lower-is-better."""
+    va, vb = a[col], b[col]
+    if pd.isna(va) or pd.isna(vb):
+        return None
+    diff = va - vb
+    lower_better = METRICS.get(col, ("", False))[1]
+    if abs(diff) < threshold:
+        return None
+    a_wins = (diff < 0) if lower_better else (diff > 0)
+    return (a["name"] if a_wins else b["name"], f"{abs(diff):.1f}{unit}")
+
+
+def _pairwise_matchup(a, b) -> str:
+    """Rule-based counter advice between two aircraft, from each one's metrics."""
+    lines: list[str] = []
+
+    def edge(col, unit, thr, phrase):
+        res = _advantage(a, b, col, unit, thr)
+        if res:
+            winner, mag = res
+            lines.append(f"- **{winner}** {phrase} (by {mag}).")
+
+    edge("max_speed_kmh", " km/h", 15, "is faster")
+    edge("turn_time_s", " s", 1.0, "turns tighter")
+    edge("climb_rate_ms", " m/s", 1.5, "climbs better")
+    edge("roll_rate_deg_s", "°/s", 8, "rolls faster")
+
+    # Tactical synthesis from the deltas.
+    plan: list[str] = []
+    spd = _advantage(a, b, "max_speed_kmh", "", 15)
+    trn = _advantage(a, b, "turn_time_s", "", 1.0)
+    if spd and trn and spd[0] != trn[0]:
+        faster, turner = spd[0], trn[0]
+        plan.append(
+            f"Classic energy-vs-agility matchup: **{faster}** should boom-and-zoom — "
+            f"keep speed, fight vertically, never enter a flat turn. **{turner}** should "
+            f"drag the fight low and slow to force a turning duel."
+        )
+    elif trn and spd and spd[0] == trn[0]:
+        plan.append(
+            f"**{spd[0]}** holds both the speed *and* turn edge — it dictates the fight; "
+            f"the other should disengage, climb away, and only re-engage with altitude."
+        )
+    clb = _advantage(a, b, "climb_rate_ms", "", 1.5)
+    if clb:
+        plan.append(f"**{clb[0]}** wins the climb race — it takes the energy advantage off the merge.")
+
+    br = ""
+    if not pd.isna(a["br_rb"]) and not pd.isna(b["br_rb"]) and a["br_rb"] != b["br_rb"]:
+        hi = a if a["br_rb"] > b["br_rb"] else b
+        br = f"\n\n_BR gap: {a['name']} {a['br_rb']:.1f} vs {b['name']} {b['br_rb']:.1f} (RB) — {hi['name']} is the uptier._"
+
+    out = "\n".join(lines) if lines else "- Performance is closely matched across the board."
+    if plan:
+        out += "\n\n**Game plan:** " + " ".join(plan)
+    # Surface any hand-written strategy notes.
+    for p in (a, b):
+        if isinstance(p.get("notes"), str) and p["notes"].strip():
+            out += f"\n\n📝 _{p['name']}_: {p['notes']}"
+    return out + br
+
+
+def matchup_notes(highlight: list[str]) -> None:
+    full = get_data()
+    # Display names can repeat across variants — take the first match per name.
+    rows = [full[full["name"] == n].iloc[0] for n in highlight if (full["name"] == n).any()]
+    if len(rows) < 2:
+        return
+    st.markdown("#### ⚔️ Matchup notes")
+    st.caption("Derived from flight-model metrics — directional guidance, not gospel.")
+    for i in range(len(rows)):
+        for j in range(i + 1, len(rows)):
+            a, b = rows[i], rows[j]
+            with st.expander(f"{a['name']}  vs  {b['name']}"):
+                st.markdown(_pairwise_matchup(a, b))
+
+
 def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
     st.subheader("📊 Explore")
     chart = st.radio(
@@ -204,7 +331,7 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
     color_opts = {"nation": "Nation", "aircraft_class": "Class", "Type": "Tech/Premium", "rank": "Rank"}
 
     if chart.startswith("Scatter"):
-        c1, c2 = st.columns([2, 1])
+        c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
             preset = st.selectbox(
                 "Preset", ["— custom —", *SCATTER_PRESETS.keys()], index=1
@@ -213,22 +340,43 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
             color_by = st.selectbox(
                 "Color by", list(color_opts), format_func=color_opts.get, key="sc_color"
             )
+        with c3:
+            use_3d = st.checkbox("3D (add Z axis)", value=False, key="sc_3d")
 
         metric_cols = list(METRICS.keys())
         if preset != "— custom —":
             x_def, y_def = SCATTER_PRESETS[preset]
         else:
             x_def, y_def = "turn_time_s", "max_speed_kmh"
-        cc1, cc2, cc3 = st.columns(3)
-        x = cc1.selectbox("X axis", metric_cols, index=metric_cols.index(x_def),
-                          format_func=_label, key="sc_x")
-        y = cc2.selectbox("Y axis", metric_cols, index=metric_cols.index(y_def),
-                          format_func=_label, key="sc_y")
-        size_by = cc3.selectbox(
-            "Bubble size", ["(none)", *metric_cols], format_func=lambda c: "(none)" if c == "(none)" else _label(c),
+
+        cols = st.columns(4 if use_3d else 3)
+        x = cols[0].selectbox("X axis", metric_cols, index=metric_cols.index(x_def),
+                              format_func=_label, key="sc_x")
+        y = cols[1].selectbox("Y axis", metric_cols, index=metric_cols.index(y_def),
+                              format_func=_label, key="sc_y")
+        if use_3d:
+            z_def = next((m for m in ("climb_rate_ms", "roll_rate_deg_s", "br_rb")
+                          if m not in (x, y)), metric_cols[0])
+            z = cols[2].selectbox("Z axis", metric_cols, index=metric_cols.index(z_def),
+                                  format_func=_label, key="sc_z")
+            size_slot = cols[3]
+        else:
+            z = None
+            size_slot = cols[2]
+        size_by = size_slot.selectbox(
+            "Bubble size", ["(none)", *metric_cols],
+            format_func=lambda c: "(none)" if c == "(none)" else _label(c),
             index=(metric_cols.index(mode_col) + 1), key="sc_size",
         )
-        _scatter(df, x, y, color_by, None if size_by == "(none)" else size_by)
+
+        all_names = sorted(get_data()["name"].dropna().unique().tolist())
+        highlight = st.multiselect(
+            "🔍 Search & highlight aircraft (type to find; pick several to compare)",
+            all_names, key="sc_hi", max_selections=8,
+        )
+        _scatter(df, x, y, color_by, None if size_by == "(none)" else size_by,
+                 z=z, highlight=highlight)
+        matchup_notes(highlight)
 
     elif chart.startswith("Ranking"):
         c1, c2, c3 = st.columns(3)
