@@ -57,6 +57,14 @@ class AircraftIn(BaseModel):
     req_air: str | None = None
 
     armament: str | None = None
+
+    gun_count: int | None = Field(default=None, ge=0, le=60)
+    cannon_count: int | None = Field(default=None, ge=0, le=60)
+    mg_count: int | None = Field(default=None, ge=0, le=60)
+    max_caliber_mm: float | None = Field(default=None, ge=0, le=500)
+    burst_mass_kg_s: float | None = Field(default=None, ge=0, le=500)
+    total_ammo: int | None = Field(default=None, ge=0)
+
     notes: str | None = None
 
     data_source: str = "override"

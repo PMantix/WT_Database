@@ -31,6 +31,11 @@ METRICS: dict[str, tuple[str, bool]] = {
     "max_altitude_m": ("Service ceiling (m)", False),
     "wing_loading_kg_m2": ("Wing loading (kg/m²)", True),
     "power_to_weight_ratio": ("Power/thrust-to-weight", False),
+    "burst_mass_kg_s": ("Firepower — burst mass (kg/s)", False),
+    "max_caliber_mm": ("Max caliber (mm)", False),
+    "gun_count": ("Gun count", False),
+    "cannon_count": ("Cannon count", False),
+    "total_ammo": ("Total ammo (rounds)", False),
     "rp_cost": ("Research cost (RP)", True),
     "sl_cost": ("Purchase cost (SL)", True),
     "repair_cost_rb": ("Repair cost RB (SL)", True),
@@ -46,6 +51,8 @@ SCATTER_PRESETS: dict[str, tuple[str, str]] = {
     "Wing loading vs Turn (turn predictor)": ("wing_loading_kg_m2", "turn_time_s"),
     "Power-to-weight vs Climb": ("power_to_weight_ratio", "climb_rate_ms"),
     "Roll rate vs Speed": ("max_speed_kmh", "roll_rate_deg_s"),
+    "Firepower vs BR (burst mass)": ("br_rb", "burst_mass_kg_s"),
+    "Firepower vs Speed": ("max_speed_kmh", "burst_mass_kg_s"),
     "Speed vs BR (fast for its BR?)": ("br_rb", "max_speed_kmh"),
     "Turn vs BR (best turner at each BR)": ("br_rb", "turn_time_s"),
     "Climb vs BR (best climber at each BR)": ("br_rb", "climb_rate_ms"),
@@ -53,9 +60,10 @@ SCATTER_PRESETS: dict[str, tuple[str, str]] = {
     "Repair cost vs BR (SL drain)": ("br_rb", "repair_cost_rb"),
 }
 
-# Metrics shown on the comparison radar.
+# Metrics shown on the comparison radar (a complete combat profile).
 RADAR_COLS = [
-    "max_speed_kmh", "climb_rate_ms", "turn_time_s", "roll_rate_deg_s", "wing_loading_kg_m2",
+    "max_speed_kmh", "climb_rate_ms", "turn_time_s", "roll_rate_deg_s",
+    "wing_loading_kg_m2", "burst_mass_kg_s",
 ]
 
 
@@ -268,6 +276,7 @@ def _pairwise_matchup(a, b) -> str:
     edge("turn_time_s", " s", 1.0, "turns tighter")
     edge("climb_rate_ms", " m/s", 1.5, "climbs better")
     edge("roll_rate_deg_s", "°/s", 8, "rolls faster")
+    edge("burst_mass_kg_s", " kg/s", 0.5, "hits harder (burst mass)")
 
     # Tactical synthesis from the deltas.
     plan: list[str] = []
@@ -469,7 +478,8 @@ def main() -> None:
     table_cols = [
         "name", "nation", "aircraft_class", "rank", "br_ab", "br_rb", "br_sb",
         "max_speed_kmh", "climb_rate_ms", "turn_time_s", "roll_rate_deg_s",
-        "wing_loading_kg_m2", "rp_cost", "repair_cost_rb", "notes",
+        "wing_loading_kg_m2", "burst_mass_kg_s", "max_caliber_mm", "gun_count",
+        "rp_cost", "repair_cost_rb", "notes",
     ]
     st.dataframe(
         filtered[table_cols].sort_values(mode_col).reset_index(drop=True),

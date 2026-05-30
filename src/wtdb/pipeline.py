@@ -19,7 +19,8 @@ from pydantic import ValidationError
 from .config import AIRCRAFT_OVERRIDES, DATAMINE_DIR
 from .datamine import iter_aircraft_records
 from .db import engine, get_session, init_db
-from .models import Aircraft
+from .firepower import firepower_for
+from .models import Aircraft, Base
 from .schemas import AircraftIn, AircraftOverride
 
 
@@ -54,10 +55,16 @@ def run(
     if verbose:
         print(f"Datamine version: {version or 'unknown'}")
 
-    # 1. Datamine -> validated records keyed by game_id.
+    # 1. Datamine -> validated records keyed by game_id (enriched with firepower).
     records: dict[str, dict] = {}
     parse_failures: list[tuple[str, str]] = []
+    fp_count = 0
     for raw in iter_aircraft_records(datamine_dir, version):
+        fp = firepower_for(raw["game_id"], datamine_dir)
+        if fp:
+            raw.update(fp)
+            if fp.get("gun_count"):
+                fp_count += 1
         try:
             rec = AircraftIn.model_validate(raw)
         except ValidationError as e:
@@ -66,7 +73,7 @@ def run(
         records[rec.game_id] = rec.model_dump()
     if verbose:
         print(f"Datamine aircraft validated: {len(records)} "
-              f"({len(parse_failures)} skipped)")
+              f"({len(parse_failures)} skipped); firepower for {fp_count}")
 
     # 2. Apply overrides.
     patched = added = 0
@@ -103,10 +110,11 @@ def run(
         print(f"Overrides: {patched} patched, {added} hand-added, "
               f"{len(override_errors)} errors")
 
-    # 3. Rebuild table.
+    # 3. Rebuild table from scratch (drop+create picks up any schema changes;
+    #    the DB is a disposable build artifact).
+    Base.metadata.drop_all(engine)
     init_db()
     with get_session() as session:
-        session.query(Aircraft).delete()
         session.bulk_insert_mappings(
             Aircraft.__mapper__, [_finalize(d) for d in records.values()]
         )

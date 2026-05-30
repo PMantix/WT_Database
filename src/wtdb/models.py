@@ -99,8 +99,16 @@ class Aircraft(Base):
     ace_ge: Mapped[int | None] = mapped_column(Integer, nullable=True)         # train3Cost_gold
     req_air: Mapped[str | None] = mapped_column(String(64), nullable=True)     # tech-tree prereq
 
-    # Armament summary (free text for MVP; normalized in Phase 2) -----------
+    # Armament summary (free text; optional) --------------------------------
     armament: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Firepower (computed from FM commonWeapons + gun files) -----------------
+    gun_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cannon_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mg_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_caliber_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    burst_mass_kg_s: Mapped[float | None] = mapped_column(Float, nullable=True)  # throw weight/sec
+    total_ammo: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Personal layer --------------------------------------------------------
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

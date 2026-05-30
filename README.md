@@ -27,7 +27,9 @@ uv sync                              # install deps + the wtdb package (editable
 # Build the full roster from the datamine (clone it first, once):
 git clone --depth 1 --filter=blob:none --sparse \
     https://github.com/gszabi99/War-Thunder-Datamine.git data/datamine
-git -C data/datamine sparse-checkout set char.vromfs.bin_u/config lang.vromfs.bin_u
+git -C data/datamine sparse-checkout set \
+    char.vromfs.bin_u/config lang.vromfs.bin_u \
+    aces.vromfs.bin_u/gamedata/flightmodels aces.vromfs.bin_u/gamedata/weapons
 uv run python -m wtdb.pipeline       # datamine -> validate -> merge overrides -> wt.db
 
 uv run streamlit run app/app.py      # open http://localhost:8501
@@ -69,6 +71,7 @@ and authoritative, so anything you hand-correct survives a re-scrape.
 - **Phase 0** ✅ environment + skeleton
 - **Phase 1** ✅ schema + seed data + working app (filters, multi-plot explore, compare radar)
 - **Phase 2** ✅ datamine scraper → full roster (1378 aircraft, 10 nations, exact BR/perf/economy)
+- **Phase 2b** ✅ firepower channel — burst mass (kg/s throw weight), caliber, gun/cannon counts, ammo (from FM `commonWeapons` + gun files)
 - **Phase 3** per-patch versioning + change-diff page
 - **Phase 4** gameplay analysis: playstyle archetype classifier, BR recommender,
   uptier briefing, matchup advisor, hidden-gem & economy scores
