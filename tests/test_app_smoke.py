@@ -50,12 +50,29 @@ def test_app_each_chart_type_runs(chart_index):
 
 
 @pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
-def test_app_3d_toggle_runs():
+def test_app_defaults_to_3d():
+    """3D scatter is the default view."""
     at = AppTest.from_file(str(APP), default_timeout=30).run()
     cb = next((c for c in at.checkbox if "3D" in (c.label or "")), None)
-    assert cb is not None, "3D checkbox not found"
-    cb.set_value(True).run()
-    assert not at.exception, f"3D scatter raised: {at.exception}"
+    assert cb is not None and cb.value is True, "3D should be the default scatter mode"
+    assert not at.exception
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+def test_app_2d_toggle_runs():
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    cb = next((c for c in at.checkbox if "3D" in (c.label or "")), None)
+    cb.set_value(False).run()  # switch to 2D
+    assert not at.exception, f"2D scatter raised: {at.exception}"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+def test_app_side_views_run():
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    sv = next((c for c in at.checkbox if "side view" in (c.label or "").lower()), None)
+    assert sv is not None, "side-views checkbox not found (3D should be default)"
+    sv.set_value(True).run()
+    assert not at.exception, f"2D side views raised: {at.exception}"
 
 
 @pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")

@@ -152,50 +152,40 @@ def _add_highlight_overlay(fig, axes: tuple[str, ...], highlight_rows: pd.DataFr
             ))
 
 
-def _scatter(
+def _scatter_fig(
     df: pd.DataFrame,
-    x: str,
-    y: str,
+    axes: tuple[str, ...],
     color: str,
     size: str | None,
-    z: str | None = None,
-    highlight: list[str] | None = None,
-) -> None:
-    """2D or 3D (when ``z`` set) scatter with optional highlighting."""
-    is_3d = z is not None
-    axes = (x, y, z) if is_3d else (x, y)
-    needed = [c for c in (x, y, z, size) if c]
-    plot_df = df.dropna(subset=needed)
-
-    full = get_data()
-    highlight = highlight or []
-    hi_rows = full[full["name"].isin(highlight)].drop_duplicates(subset="name")
-
-    if plot_df.empty and hi_rows.empty:
-        missing = " / ".join(_label(a) for a in axes)
-        st.info(f"No aircraft in the current filter have data for {missing}.")
-        return
-
+    hi_rows: pd.DataFrame,
+    height: int,
+    show_legend: bool = True,
+):
+    """Build (don't render) a 2D or 3D scatter figure with highlight overlay."""
+    is_3d = len(axes) == 3
+    plot_df = df.dropna(subset=[c for c in (*axes, size) if c])
     size_arg = plot_df[size].clip(lower=0.1) if size else None
-    hover = {"nation": True, "aircraft_class": True, "br_rb": ":.1f"}
     common = dict(
         color=color,
         hover_name="name",
-        hover_data=hover,
+        hover_data={"nation": True, "aircraft_class": True, "br_rb": ":.1f"},
         labels={a: _label(a) for a in axes} | {"nation": "Nation"},
-        height=640 if is_3d else 580,
+        height=height,
     )
     if is_3d:
+        x, y, z = axes
         fig = px.scatter_3d(plot_df, x=x, y=y, z=z, size=size_arg, **common)
         fig.update_traces(marker=dict(line=dict(width=0)))
         scene = {}
-        for axis, col in (("xaxis", x), ("yaxis", y), ("zaxis", z)):
-            ax = dict(title=_label(col))
+        for sax, col in (("xaxis", x), ("yaxis", y), ("zaxis", z)):
+            a = dict(title=_label(col))
             if METRICS.get(col, ("", False))[1]:
-                ax["autorange"] = "reversed"
-            scene[axis] = ax
-        fig.update_layout(scene=scene)
+                a["autorange"] = "reversed"
+            scene[sax] = a
+        # Tight margins maximize the plot area so axes stay visible while zooming.
+        fig.update_layout(scene=scene, margin=dict(l=0, r=0, t=10, b=0))
     else:
+        x, y = axes
         fig = px.scatter(
             plot_df, x=x, y=y, size=size_arg,
             symbol="aircraft_class" if color != "aircraft_class" else None,
@@ -205,9 +195,47 @@ def _scatter(
             fig.update_xaxes(autorange="reversed")
         if METRICS.get(y, ("", False))[1]:
             fig.update_yaxes(autorange="reversed")
+        fig.update_layout(margin=dict(l=0, r=0, t=10, b=0))
 
     _add_highlight_overlay(fig, axes, hi_rows, is_3d)
+    if not show_legend:
+        fig.update_layout(showlegend=False)
+    return fig
+
+
+def _scatter(
+    df: pd.DataFrame,
+    x: str,
+    y: str,
+    color: str,
+    size: str | None,
+    z: str | None = None,
+    highlight: list[str] | None = None,
+    side_views: bool = False,
+) -> None:
+    """Render a 2D or 3D (when ``z`` set) scatter, with optional 2D side views."""
+    is_3d = z is not None
+    axes = (x, y, z) if is_3d else (x, y)
+
+    full = get_data()
+    highlight = highlight or []
+    hi_rows = full[full["name"].isin(highlight)].drop_duplicates(subset="name")
+
+    if df.dropna(subset=list(axes)).empty and hi_rows.empty:
+        missing = " / ".join(_label(a) for a in axes)
+        st.info(f"No aircraft in the current filter have data for {missing}.")
+        return
+
+    main_height = 760 if is_3d else 620
+    fig = _scatter_fig(df, axes, color, size, hi_rows, height=main_height)
     st.plotly_chart(fig, use_container_width=True)
+
+    if is_3d and side_views:
+        st.caption("**2D side views** — the three orthogonal projections of the cube above.")
+        pairs = [(x, y), (x, z), (y, z)]
+        for (ax, ay), col in zip(pairs, st.columns(3)):
+            sub = _scatter_fig(df, (ax, ay), color, size, hi_rows, height=340, show_legend=False)
+            col.plotly_chart(sub, use_container_width=True)
 
 
 def _ranking_bar(df: pd.DataFrame, metric: str, top_n: int, color: str) -> None:
@@ -350,7 +378,7 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
                 "Color by", list(color_opts), format_func=color_opts.get, key="sc_color"
             )
         with c3:
-            use_3d = st.checkbox("3D (add Z axis)", value=False, key="sc_3d")
+            use_3d = st.checkbox("3D (Z axis)", value=True, key="sc_3d")
 
         metric_cols = list(METRICS.keys())
         if preset != "— custom —":
@@ -363,6 +391,7 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
                               format_func=_label, key="sc_x")
         y = cols[1].selectbox("Y axis", metric_cols, index=metric_cols.index(y_def),
                               format_func=_label, key="sc_y")
+        side_views = False
         if use_3d:
             z_def = next((m for m in ("climb_rate_ms", "roll_rate_deg_s", "br_rb")
                           if m not in (x, y)), metric_cols[0])
@@ -377,6 +406,10 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
             format_func=lambda c: "(none)" if c == "(none)" else _label(c),
             index=(metric_cols.index(mode_col) + 1), key="sc_size",
         )
+        if use_3d:
+            side_views = st.checkbox(
+                "Show 2D side views (X·Y, X·Z, Y·Z projections)", value=False, key="sc_sides"
+            )
 
         all_names = sorted(get_data()["name"].dropna().unique().tolist())
         highlight = st.multiselect(
@@ -384,7 +417,7 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
             all_names, key="sc_hi", max_selections=8,
         )
         _scatter(df, x, y, color_by, None if size_by == "(none)" else size_by,
-                 z=z, highlight=highlight)
+                 z=z, highlight=highlight, side_views=side_views)
         matchup_notes(highlight)
 
     elif chart.startswith("Ranking"):
