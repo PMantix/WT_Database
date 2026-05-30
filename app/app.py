@@ -128,7 +128,10 @@ def sidebar_filters(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
 HIGHLIGHT_PALETTE = px.colors.qualitative.Bold
 
 
-def _add_highlight_overlay(fig, axes: tuple[str, ...], highlight_rows: pd.DataFrame, is_3d: bool):
+def _add_highlight_overlay(
+    fig, axes: tuple[str, ...], highlight_rows: pd.DataFrame, is_3d: bool,
+    marker_scale: float = 1.0,
+):
     """Dim the base cloud and pop the highlighted aircraft with labels."""
     if highlight_rows.empty:
         return
@@ -143,13 +146,15 @@ def _add_highlight_overlay(fig, axes: tuple[str, ...], highlight_rows: pd.DataFr
             fig.add_trace(go.Scatter3d(
                 x=[r[x]], y=[r[y]], z=[r[z]], mode="markers+text",
                 text=[r["name"]], textposition="top center", name=r["name"],
-                marker=dict(size=9, color=color, line=dict(width=2, color="white")),
+                marker=dict(size=max(4, round(9 * marker_scale)), color=color,
+                            line=dict(width=2, color="white")),
             ))
         else:
             fig.add_trace(go.Scatter(
                 x=[r[x]], y=[r[y]], mode="markers+text",
                 text=[r["name"]], textposition="top center", name=r["name"],
-                marker=dict(size=18, color=color, line=dict(width=2, color="white")),
+                marker=dict(size=max(5, round(18 * marker_scale)), color=color,
+                            line=dict(width=max(1, round(2 * marker_scale)), color="white")),
             ))
 
 
@@ -161,11 +166,17 @@ def _scatter_fig(
     hi_rows: pd.DataFrame,
     height: int,
     show_legend: bool = True,
+    marker_scale: float = 1.0,
 ):
-    """Build (don't render) a 2D or 3D scatter figure with highlight overlay."""
+    """Build (don't render) a 2D or 3D scatter figure with highlight overlay.
+
+    ``marker_scale`` shrinks both the bubble sizing and highlight markers — the
+    small side-view panels pass ~1/3 so points don't overwhelm the plot.
+    """
     is_3d = len(axes) == 3
     plot_df = df.dropna(subset=[c for c in (*axes, size) if c])
     size_arg = plot_df[size].clip(lower=0.1) if size else None
+    size_max = max(4, round(18 * marker_scale))
     common = dict(
         color=color,
         hover_name="name",
@@ -175,7 +186,7 @@ def _scatter_fig(
     )
     if is_3d:
         x, y, z = axes
-        fig = px.scatter_3d(plot_df, x=x, y=y, z=z, size=size_arg, **common)
+        fig = px.scatter_3d(plot_df, x=x, y=y, z=z, size=size_arg, size_max=size_max, **common)
         fig.update_traces(marker=dict(line=dict(width=0)))
         scene = {}
         for sax, col in (("xaxis", x), ("yaxis", y), ("zaxis", z)):
@@ -188,17 +199,21 @@ def _scatter_fig(
     else:
         x, y = axes
         fig = px.scatter(
-            plot_df, x=x, y=y, size=size_arg,
+            plot_df, x=x, y=y, size=size_arg, size_max=size_max,
             symbol="aircraft_class" if color != "aircraft_class" else None,
             **common,
         )
+        if size_arg is None:
+            # No size dimension: px uses a fixed default; scale it for side views.
+            fig.update_traces(marker_size=max(3, round(7 * marker_scale)),
+                              selector=dict(mode="markers"))
         if METRICS.get(x, ("", False))[1]:
             fig.update_xaxes(autorange="reversed")
         if METRICS.get(y, ("", False))[1]:
             fig.update_yaxes(autorange="reversed")
         fig.update_layout(margin=dict(l=0, r=0, t=10, b=0))
 
-    _add_highlight_overlay(fig, axes, hi_rows, is_3d)
+    _add_highlight_overlay(fig, axes, hi_rows, is_3d, marker_scale=marker_scale)
     if not show_legend:
         fig.update_layout(showlegend=False)
     return fig
@@ -256,7 +271,8 @@ def _scatter(
         st.caption("**2D side views** — the three orthogonal projections of the cube above.")
         pairs = [(x, y), (x, z), (y, z)]
         for (ax, ay), col in zip(pairs, st.columns(3)):
-            sub = _scatter_fig(df, (ax, ay), color, size, hi_rows, height=340, show_legend=False)
+            sub = _scatter_fig(df, (ax, ay), color, size, hi_rows, height=340,
+                               show_legend=False, marker_scale=1 / 3)
             col.plotly_chart(sub, use_container_width=True)
 
 
