@@ -635,10 +635,10 @@ def threat_board_tab(filtered: pd.DataFrame, mode_col: str) -> None:
 
     c1, c2, c3 = st.columns([2, 2, 1.3])
     subject_name = c1.selectbox("Your aircraft", names, key="tb_subject")
-    use_mm = c2.checkbox(
-        "Matchmaking spread (BR → +1.0)", value=False, key="tb_mm",
-        help="On: auto-pick everything from your BR up to +1.0 (the RB uptier), all "
-             "nations incl. your own. Off: use the current sidebar filter.",
+    pool_src = c2.selectbox(
+        "Enemy pool", ["Sidebar filter", "BR bracket"], key="tb_pool",
+        help="The set of enemies you're up against — independent of your plane. "
+             "Change your aircraft to see how it fares against the SAME enemies.",
     )
     group_variants = c3.checkbox(
         "Group variants", value=False, key="tb_group",
@@ -646,13 +646,22 @@ def threat_board_tab(filtered: pd.DataFrame, mode_col: str) -> None:
     )
 
     subject = full[full["name"] == subject_name].iloc[0]
-    if use_mm:
-        lo = subject[mode_col]
-        pool = full[full[mode_col].between(lo, lo + 1.0)] if pd.notna(lo) else full
-        pool_note = f"BR {lo:.1f}–{lo + 1.0:.1f} ({MODE_LABELS[mode_col]}), all nations"
+    if pool_src == "BR bracket":
+        # A fixed bracket (all nations). Independent of the subject: the slider
+        # keeps its own value, so swapping your plane doesn't move it.
+        brs = full[mode_col].dropna()
+        bmin, bmax = float(brs.min()), float(brs.max())
+        lo_def = float(subject[mode_col]) if pd.notna(subject[mode_col]) else bmin
+        default = (min(lo_def, bmax), min(bmax, lo_def + 1.0))
+        rng = st.slider(f"Enemy BR bracket ({MODE_LABELS[mode_col]})", bmin, bmax,
+                        default, step=0.3, key="tb_br")
+        pool = full[full[mode_col].between(rng[0], rng[1])]
+        pool_note = f"BR {rng[0]:.1f}–{rng[1]:.1f} ({MODE_LABELS[mode_col]}), all nations"
     else:
         pool = filtered
         pool_note = "current sidebar filter"
+    st.caption("🔁 Lost your plane? Change **Your aircraft** above — the enemy pool stays "
+               "put so you can see how a different plane handles the same fight.")
 
     if group_variants:
         pool = (pool.sort_values(["is_premium", "br_rb", "game_id"])

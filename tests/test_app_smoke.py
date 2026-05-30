@@ -96,12 +96,34 @@ def test_threat_board_tab_renders():
 
 
 @pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
-def test_threat_board_matchmaking_toggle():
+def test_threat_board_br_bracket_pool():
     at = AppTest.from_file(str(APP), default_timeout=30).run()
-    mm = next((c for c in at.checkbox if "matchmaking spread" in (c.label or "").lower()), None)
-    assert mm is not None, "matchmaking-spread checkbox not found"
-    mm.set_value(True).run()
-    assert not at.exception, f"MM-spread threat board raised: {at.exception}"
+    pool = next((s for s in at.selectbox if (s.label or "") == "Enemy pool"), None)
+    assert pool is not None, "enemy-pool selectbox not found"
+    pool.set_value("BR bracket").run()
+    assert not at.exception, f"BR-bracket pool raised: {at.exception}"
+
+
+def _all_text(at):
+    out = []
+    for attr in ("markdown", "caption"):
+        coll = getattr(at, attr, None)
+        if coll is not None:
+            out += [getattr(e, "value", "") or "" for e in coll]
+    return out
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+def test_threat_board_pool_independent_of_subject():
+    """Changing the subject must not switch the enemy-pool source (sidebar filter)."""
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    subj = next(s for s in at.selectbox if (s.label or "") == "Your aircraft")
+    assert any("current sidebar filter" in t for t in _all_text(at))
+    if len(subj.options) >= 2:
+        subj.set_value(subj.options[1]).run()
+    assert not at.exception
+    # Pool source is still the sidebar filter — it did not follow the subject.
+    assert any("current sidebar filter" in t for t in _all_text(at))
 
 
 @pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
