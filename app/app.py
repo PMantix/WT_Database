@@ -23,7 +23,23 @@ import streamlit as st
 from wtdb.analysis import CATEGORIES, CATEGORY_ORDER, response_surface, threat_board
 from wtdb.db import load_dataframe
 
-st.set_page_config(page_title="WT Aircraft Explorer", page_icon="✈️", layout="wide")
+st.set_page_config(
+    page_title="WT Aircraft Explorer", page_icon="✈️", layout="wide",
+    initial_sidebar_state="expanded",  # so filters are discoverable on mobile
+)
+
+
+def _show(fig, container=st, overlay_legend: bool = True):
+    """Render a Plotly fig mobile-friendly: responsive, tight margins, and the
+    legend floated transparently across the top so the plot fills the width."""
+    if overlay_legend:
+        fig.update_layout(legend=dict(
+            orientation="h", yanchor="bottom", y=1.005, xanchor="left", x=0,
+            bgcolor="rgba(0,0,0,0)", font=dict(size=10), title_text="",
+        ))
+    fig.update_layout(margin=dict(l=0, r=0, t=28, b=0), autosize=True)
+    container.plotly_chart(fig, use_container_width=True,
+                           config={"responsive": True, "displaylogo": False})
 
 MODE_LABELS = {"br_ab": "Arcade", "br_rb": "Realistic", "br_sb": "Simulator"}
 
@@ -272,7 +288,7 @@ def _scatter(
                 "Higher orders flex more but can over-fit a sparse filter."
             )
 
-    st.plotly_chart(fig, use_container_width=True)
+    _show(fig)
 
     if is_3d and side_views:
         st.caption("**2D side views** — the three orthogonal projections of the cube above.")
@@ -280,7 +296,7 @@ def _scatter(
         for (ax, ay), col in zip(pairs, st.columns(3)):
             sub = _scatter_fig(df, (ax, ay), color, size, hi_rows, height=340,
                                show_legend=False, marker_scale=1 / 3)
-            col.plotly_chart(sub, use_container_width=True)
+            _show(sub, container=col, overlay_legend=False)
 
 
 def _ranking_bar(df: pd.DataFrame, metric: str, top_n: int, color: str) -> None:
@@ -301,7 +317,7 @@ def _ranking_bar(df: pd.DataFrame, metric: str, top_n: int, color: str) -> None:
         height=max(320, 28 * len(plot_df)),
     )
     fig.update_yaxes(categoryorder="total ascending" if not lower_better else "total descending")
-    st.plotly_chart(fig, use_container_width=True)
+    _show(fig)
     st.caption(f"Top {len(plot_df)} by {_label(metric)} ({'lower' if lower_better else 'higher'} is better).")
 
 
@@ -318,7 +334,7 @@ def _parallel(df: pd.DataFrame, cols: list[str], color_metric: str) -> None:
         color_continuous_scale=px.colors.sequential.Viridis,
         height=480,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    _show(fig)
     st.caption("Each vertical axis is one metric; each line is an aircraft. Drag along an axis to brush-filter.")
 
 
@@ -537,7 +553,7 @@ def comparison_radar(df: pd.DataFrame) -> None:
         height=480,
         showlegend=True,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    _show(fig)
     st.caption("Each axis is percentile-normalized across the full roster (100 = best). Turn axis is inverted so outward = faster turn.")
 
     cols = ["name", "nation", "aircraft_class", "br_rb"] + RADAR_COLS
@@ -592,7 +608,7 @@ def _quadrant_chart(board: pd.DataFrame, subject_name: str, highlight: list[str]
                           (0.5, -0.92, "drag to turnfight"), (-0.6, -0.92, "AVOID")]:
         fig.add_annotation(x=xa * lim, y=ya * lim, text=txt, showarrow=False,
                            font=dict(size=12, color="gray"))
-    st.plotly_chart(fig, use_container_width=True)
+    _show(fig)
 
 
 def threat_board_tab(filtered: pd.DataFrame, mode_col: str) -> None:
@@ -706,6 +722,7 @@ def aircraft_table(filtered: pd.DataFrame, mode_col: str, version: str) -> None:
 
 def main() -> None:
     st.title("✈️ War Thunder Aircraft Explorer")
+    st.caption("Filters are in the sidebar — on mobile, tap **❯** (top-left) to open it.")
     df = get_data()
     filtered, mode_col = sidebar_filters(df)
     version = df["game_version"].dropna().iloc[0] if df["game_version"].notna().any() else "?"
