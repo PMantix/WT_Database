@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from wtdb.analysis import response_surface
+from wtdb.analysis import CATEGORY_ORDER, categorize, response_surface, threat_board
 
 
 def test_plane_fit_recovers_exact_plane():
@@ -68,3 +68,79 @@ def test_grid_shape_and_axes():
     gx, gy, gz, _ = response_surface(df, "x", "y", "z", degree=1, grid=20)
     assert gx.shape == (20,) and gy.shape == (20,)
     assert gz.shape == (20, 20)  # (len(gy), len(gx))
+
+
+# --- Threat Board -----------------------------------------------------------
+
+@pytest.mark.parametrize("e,m,expected", [
+    (1.0, 1.0, "prey"),
+    (1.0, 0.0, "out_energy"),
+    (1.0, -1.0, "out_energy"),
+    (0.0, 1.0, "out_turn"),
+    (-1.0, 1.0, "out_turn"),
+    (0.0, 0.0, "near_peer"),
+    (-1.0, -1.0, "threat"),
+    (0.0, -1.0, "threat"),
+    (-1.0, 0.0, "threat"),
+])
+def test_categorize_quadrants(e, m, expected):
+    assert categorize(e, m, threshold=0.33) == expected
+
+
+def _pool():
+    # subject is a fast, hard-climbing, poor-turning energy fighter.
+    return pd.DataFrame([
+        {"game_id": "subject", "name": "Subject", "nation": "germany",
+         "aircraft_class": "fighter", "br_rb": 4.0, "max_speed_kmh": 650,
+         "climb_rate_ms": 20, "power_to_weight_ratio": 0.4, "turn_time_s": 22,
+         "wing_loading_kg_m2": 200, "roll_rate_deg_s": 90, "burst_mass_kg_s": 2.0},
+        # slow, floaty turnfighter: subject out-energies, loses the turn -> out_energy
+        {"game_id": "turner", "name": "Turner", "nation": "japan",
+         "aircraft_class": "fighter", "br_rb": 4.0, "max_speed_kmh": 540,
+         "climb_rate_ms": 14, "power_to_weight_ratio": 0.3, "turn_time_s": 16,
+         "wing_loading_kg_m2": 110, "roll_rate_deg_s": 70, "burst_mass_kg_s": 1.2},
+        # strictly worse everywhere -> prey
+        {"game_id": "weak", "name": "Weakling", "nation": "usa",
+         "aircraft_class": "fighter", "br_rb": 3.7, "max_speed_kmh": 520,
+         "climb_rate_ms": 12, "power_to_weight_ratio": 0.28, "turn_time_s": 24,
+         "wing_loading_kg_m2": 230, "roll_rate_deg_s": 60, "burst_mass_kg_s": 1.0},
+        # strictly better everywhere -> threat
+        {"game_id": "uber", "name": "Uber", "nation": "ussr",
+         "aircraft_class": "fighter", "br_rb": 5.0, "max_speed_kmh": 720,
+         "climb_rate_ms": 25, "power_to_weight_ratio": 0.5, "turn_time_s": 18,
+         "wing_loading_kg_m2": 150, "roll_rate_deg_s": 110, "burst_mass_kg_s": 3.5},
+    ])
+
+
+def test_threat_board_categories_and_exclusion():
+    df = _pool()
+    subject = df[df.game_id == "subject"].iloc[0]
+    board = threat_board(subject, df, threshold=0.33)
+    assert "subject" not in set(board.game_id)  # subject excluded
+    cats = dict(zip(board.name, board.category))
+    assert cats["Weakling"] == "prey"
+    assert cats["Uber"] == "threat"
+    assert cats["Turner"] == "out_energy"  # win energy, lose turn
+
+
+def test_threat_board_same_nation_kept():
+    df = _pool()
+    df.loc[df.game_id == "weak", "nation"] = "germany"  # same as subject
+    subject = df[df.game_id == "subject"].iloc[0]
+    board = threat_board(subject, df)
+    assert "Weakling" in set(board.name)  # same-nation competitor retained
+
+
+def test_threat_board_is_sorted_by_category():
+    df = _pool()
+    subject = df[df.game_id == "subject"].iloc[0]
+    board = threat_board(subject, df)
+    order = [CATEGORY_ORDER.index(c) for c in board.category]
+    assert order == sorted(order)
+
+
+def test_threat_board_empty_pool():
+    df = _pool()
+    subject = df[df.game_id == "subject"].iloc[0]
+    board = threat_board(subject, df[df.game_id == "subject"])  # only subject
+    assert board.empty

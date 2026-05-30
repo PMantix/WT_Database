@@ -86,6 +86,25 @@ def test_app_response_surface_runs(fit):
 
 
 @pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+def test_threat_board_tab_renders():
+    """The Threat Board tab builds without error and produces its breakdown."""
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    assert not at.exception, f"App (with tabs) raised: {at.exception}"
+    # The subject selectbox exists and the quadrant section renders.
+    subj = next((s for s in at.selectbox if (s.label or "") == "Your aircraft"), None)
+    assert subj is not None, "Threat Board subject selector not found"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+def test_threat_board_matchmaking_toggle():
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    mm = next((c for c in at.checkbox if "matchmaking spread" in (c.label or "").lower()), None)
+    assert mm is not None, "matchmaking-spread checkbox not found"
+    mm.set_value(True).run()
+    assert not at.exception, f"MM-spread threat board raised: {at.exception}"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
 def test_app_highlight_and_matchup_runs():
     at = AppTest.from_file(str(APP), default_timeout=30).run()
     # The scatter highlight multiselect is the one whose label has the magnifier.

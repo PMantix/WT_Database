@@ -13,7 +13,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from wtdb.analysis import response_surface
+from wtdb.analysis import CATEGORIES, CATEGORY_ORDER, response_surface, threat_board
 from wtdb.db import load_dataframe
 
 st.set_page_config(page_title="WT Aircraft Explorer", page_icon="✈️", layout="wide")
@@ -537,10 +537,117 @@ def comparison_radar(df: pd.DataFrame) -> None:
     st.dataframe(sel[cols].set_index("name"), use_container_width=True)
 
 
+CATEGORY_COLORS = {
+    "prey": "#2ca02c", "out_energy": "#1f77b4", "out_turn": "#ff7f0e",
+    "near_peer": "#d4a017", "threat": "#d62728",
+}
+
+
+def _quadrant_chart(board: pd.DataFrame, subject_name: str) -> None:
+    board = board.copy()
+    board["Category"] = [f"{CATEGORIES[c][1]} {CATEGORIES[c][0]}" for c in board["category"]]
+    board["fp"] = board["firepower_adv"].abs().clip(lower=0.05)
+    cmap = {f"{CATEGORIES[c][1]} {CATEGORIES[c][0]}": CATEGORY_COLORS[c] for c in CATEGORY_ORDER}
+    fig = px.scatter(
+        board, x="maneuver_adv", y="energy_adv", color="Category",
+        size="fp", color_discrete_map=cmap, hover_name="name",
+        hover_data={"br_rb": ":.1f", "tactic": True, "maneuver_adv": ":.2f",
+                    "energy_adv": ":.2f", "fp": False, "Category": False},
+        labels={"maneuver_adv": "◀ they out-turn   ·   you out-turn ▶",
+                "energy_adv": "▼ they out-energy   ·   you out-energy ▲"},
+        height=560,
+    )
+    lim = max(1.0, float(board[["maneuver_adv", "energy_adv"]].abs().to_numpy().max()) * 1.15)
+    fig.update_xaxes(range=[-lim, lim], zeroline=True, zerolinewidth=2)
+    fig.update_yaxes(range=[-lim, lim], zeroline=True, zerolinewidth=2)
+    # Your plane sits at the origin.
+    fig.add_trace(go.Scatter(
+        x=[0], y=[0], mode="markers+text", text=[f"⭐ {subject_name}"],
+        textposition="bottom center", marker=dict(size=16, color="white",
+        line=dict(width=2, color="black")), name=subject_name, showlegend=False,
+    ))
+    for (xa, ya, txt) in [(0.55, 0.9, "PREY"), (-0.6, 0.9, "keep vertical"),
+                          (0.5, -0.92, "drag to turnfight"), (-0.6, -0.92, "AVOID")]:
+        fig.add_annotation(x=xa * lim, y=ya * lim, text=txt, showarrow=False,
+                           font=dict(size=12, color="gray"))
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def threat_board_tab(filtered: pd.DataFrame, mode_col: str) -> None:
+    st.subheader("🎯 Threat Board")
+    st.caption(
+        "Pick your plane; every competitor is sorted by where your advantage lies. "
+        "Model uses stat-card flight-model numbers — it won't capture missiles, "
+        "radar, countermeasures or pilot skill (so treat top-tier as directional)."
+    )
+    full = get_data()
+    names = sorted(full["name"].dropna().unique().tolist())
+
+    c1, c2 = st.columns([2, 2])
+    subject_name = c1.selectbox("Your aircraft", names, key="tb_subject")
+    use_mm = c2.checkbox(
+        "Competitors = matchmaking spread (your BR → +1.0)", value=False, key="tb_mm",
+        help="On: auto-pick everything from your BR up to +1.0 (the RB uptier), all "
+             "nations. Off: use the current sidebar filter.",
+    )
+
+    subject = full[full["name"] == subject_name].iloc[0]
+    if use_mm:
+        lo = subject[mode_col]
+        pool = full[full[mode_col].between(lo, lo + 1.0)] if pd.notna(lo) else full
+        st.caption(f"Pool: BR {lo:.1f}–{lo + 1.0:.1f} ({MODE_LABELS[mode_col]}), all nations.")
+    else:
+        pool = filtered
+        st.caption(f"Pool: current sidebar filter ({len(pool)} aircraft).")
+
+    board = threat_board(subject, pool)
+    if board.empty:
+        st.info("No competitors in the pool. Widen the filter or enable the matchmaking spread.")
+        return
+
+    _quadrant_chart(board, subject_name)
+
+    st.markdown("### Breakdown")
+    for cat in CATEGORY_ORDER:
+        grp = board[board["category"] == cat]
+        if grp.empty:
+            continue
+        label, emoji, stance = CATEGORIES[cat]
+        with st.expander(f"{emoji} **{label}** — {len(grp)} aircraft", expanded=cat in ("prey", "threat")):
+            st.caption(stance)
+            for _, r in grp.iterrows():
+                tac = f" — {r['tactic']}" if r["tactic"] else ""
+                st.markdown(f"- **{r['name']}** ({r['nation']}, BR {r['br_rb']:.1f}){tac}")
+    st.caption(
+        "Energy = speed + climb + power/weight · Maneuver = turn + wing-loading + roll · "
+        "bubble size = firepower gap. Advantages are relative to the spread of this pool."
+    )
+
+
+def aircraft_table(filtered: pd.DataFrame, mode_col: str, version: str) -> None:
+    st.subheader("📋 Aircraft table")
+    table_cols = [
+        "name", "nation", "aircraft_class", "rank", "br_ab", "br_rb", "br_sb",
+        "max_speed_kmh", "climb_rate_ms", "turn_time_s", "roll_rate_deg_s",
+        "wing_loading_kg_m2", "burst_mass_kg_s", "max_caliber_mm", "gun_count",
+        "rp_cost", "repair_cost_rb", "notes",
+    ]
+    st.dataframe(
+        filtered[table_cols].sort_values(mode_col).reset_index(drop=True),
+        use_container_width=True, height=560,
+    )
+    st.caption(
+        f"Data from the War Thunder datamine (version {version}). "
+        "Hand corrections/notes live in `data/overrides/aircraft.yaml`; "
+        "re-run `uv run python -m wtdb.pipeline` after a patch."
+    )
+
+
 def main() -> None:
     st.title("✈️ War Thunder Aircraft Explorer")
     df = get_data()
     filtered, mode_col = sidebar_filters(df)
+    version = df["game_version"].dropna().iloc[0] if df["game_version"].notna().any() else "?"
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Aircraft shown", len(filtered))
@@ -551,29 +658,15 @@ def main() -> None:
             f"{filtered[mode_col].min():.1f}–{filtered[mode_col].max():.1f}",
         )
 
-    explore_plots(filtered, mode_col)
-    st.divider()
-    comparison_radar(filtered)
-    st.divider()
-
-    st.subheader("Aircraft table")
-    table_cols = [
-        "name", "nation", "aircraft_class", "rank", "br_ab", "br_rb", "br_sb",
-        "max_speed_kmh", "climb_rate_ms", "turn_time_s", "roll_rate_deg_s",
-        "wing_loading_kg_m2", "burst_mass_kg_s", "max_caliber_mm", "gun_count",
-        "rp_cost", "repair_cost_rb", "notes",
-    ]
-    st.dataframe(
-        filtered[table_cols].sort_values(mode_col).reset_index(drop=True),
-        use_container_width=True,
-        height=440,
-    )
-    st.caption(
-        f"Data from the War Thunder datamine (version "
-        f"{df['game_version'].dropna().iloc[0] if df['game_version'].notna().any() else '?'}). "
-        "Hand corrections/notes live in `data/overrides/aircraft.yaml`; "
-        "re-run `uv run python -m wtdb.pipeline` after a patch."
-    )
+    tab_explore, tab_threat, tab_table = st.tabs(["📊 Explore", "🎯 Threat Board", "📋 Table"])
+    with tab_explore:
+        explore_plots(filtered, mode_col)
+        st.divider()
+        comparison_radar(filtered)
+    with tab_threat:
+        threat_board_tab(filtered, mode_col)
+    with tab_table:
+        aircraft_table(filtered, mode_col, version)
 
 
 main()
