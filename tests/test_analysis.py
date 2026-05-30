@@ -32,9 +32,35 @@ def test_quadratic_fit_beats_plane_on_curved_data():
     assert quad[3] == pytest.approx(1.0, abs=1e-6)
 
 
+def test_cubic_recovers_cubic_data():
+    rng = [(a, b) for a in range(8) for b in range(8)]
+    df = pd.DataFrame(rng, columns=["x", "y"])
+    df["z"] = df["x"] ** 3 - 2 * df["y"] ** 2 + df["x"] * df["y"]
+    cubic = response_surface(df, "x", "y", "z", degree=3)
+    quad = response_surface(df, "x", "y", "z", degree=2)
+    assert cubic[3] == pytest.approx(1.0, abs=1e-6)  # cubic fits exactly
+    assert cubic[3] > quad[3]
+
+
+def test_high_degree_well_conditioned_on_large_values():
+    # Speed-like magnitudes (~2000) with a quartic must not blow up numerically.
+    rng = [(200 * a, 50 * b) for a in range(10) for b in range(10)]
+    df = pd.DataFrame(rng, columns=["x", "y"])
+    df["z"] = 1e-6 * df["x"] ** 2 + df["y"]
+    res = response_surface(df, "x", "y", "z", degree=4)
+    assert res is not None
+    assert np.isfinite(res[2]).all()       # surface grid is all finite
+    assert res[3] == pytest.approx(1.0, abs=1e-3)
+
+
 def test_too_few_points_returns_none():
     df = pd.DataFrame({"x": [1.0, 2.0], "y": [1.0, 2.0], "z": [1.0, 2.0]})
-    assert response_surface(df, "x", "y", "z", degree=2) is None
+    assert response_surface(df, "x", "y", "z", degree=2) is None  # needs >= 6 terms
+    assert response_surface(df, "x", "y", "z", degree=1) is None  # 2 pts < 3 terms
+    # Exactly enough points for a plane (3 terms) fits.
+    df3 = pd.DataFrame({"x": [0.0, 1.0, 0.0], "y": [0.0, 0.0, 1.0], "z": [1.0, 3.0, 4.0]})
+    assert response_surface(df3, "x", "y", "z", degree=1) is not None
+
 
 
 def test_grid_shape_and_axes():

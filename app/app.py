@@ -242,10 +242,12 @@ def _scatter(
                 colorscale="Blues", name="fit", hoverinfo="skip",
                 contours={"z": {"show": True, "usecolormap": True, "project_z": True}},
             ))
-            kind = "quadratic surface" if surface_degree >= 2 else "best-fit plane"
+            kind = {1: "best-fit plane", 2: "quadratic surface", 3: "cubic surface",
+                    4: "quartic surface"}.get(surface_degree, f"degree-{surface_degree} surface")
             st.caption(
                 f"Overlaid **{kind}** fit of {_label(z)} vs {_label(x)} & {_label(y)} "
-                f"— R² = {r2:.2f} (how much of {_label(z)} the other two explain)."
+                f"— R² = {r2:.2f} (how much of {_label(z)} the other two explain). "
+                "Higher orders flex more but can over-fit a sparse filter."
             )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -433,10 +435,13 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
                 "Show 2D side views (X·Y, X·Z, Y·Z projections)", value=False, key="sc_sides"
             )
             fit_choice = sc2.selectbox(
-                "Fit response surface", ["Off", "Plane (linear)", "Quadratic surface"],
+                "Fit response surface",
+                ["Off", "Plane (linear)", "Quadratic", "Cubic", "Quartic"],
                 index=0, key="sc_surf",
             )
-            surface_degree = {"Plane (linear)": 1, "Quadratic surface": 2}.get(fit_choice)
+            surface_degree = {
+                "Plane (linear)": 1, "Quadratic": 2, "Cubic": 3, "Quartic": 4,
+            }.get(fit_choice)
 
         all_names = sorted(get_data()["name"].dropna().unique().tolist())
         highlight = st.multiselect(

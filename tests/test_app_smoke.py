@@ -76,7 +76,7 @@ def test_app_side_views_run():
 
 
 @pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
-@pytest.mark.parametrize("fit", ["Plane (linear)", "Quadratic surface"])
+@pytest.mark.parametrize("fit", ["Plane (linear)", "Quadratic", "Cubic", "Quartic"])
 def test_app_response_surface_runs(fit):
     at = AppTest.from_file(str(APP), default_timeout=30).run()
     sb = next((s for s in at.selectbox if "response surface" in (s.label or "").lower()), None)
