@@ -1,0 +1,10 @@
+# Runtime deps for deploying the Streamlit app (e.g. Streamlit Community Cloud).
+# The wtdb package is imported via a sys.path shim in app/app.py, so it does not
+# need to be installed. For local dev use `uv sync` (see pyproject.toml) instead.
+streamlit>=1.40
+plotly>=6.0
+pandas>=2.2
+numpy>=1.26
+SQLAlchemy>=2.0
+pydantic>=2.9
+PyYAML>=6.0

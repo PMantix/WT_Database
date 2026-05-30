@@ -105,6 +105,21 @@ def test_threat_board_matchmaking_toggle():
 
 
 @pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
+def test_threat_board_group_variants_and_highlight():
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    grp = next((c for c in at.checkbox if "group variants" in (c.label or "").lower()), None)
+    assert grp is not None, "group-variants checkbox not found"
+    grp.set_value(True).run()
+    assert not at.exception, f"group-variants raised: {at.exception}"
+    # Highlight an adversary on the board.
+    hl = next((m for m in at.multiselect if "highlight adversaries" in (m.label or "").lower()), None)
+    assert hl is not None, "adversary-highlight multiselect not found"
+    if hl.options:
+        hl.set_value([hl.options[0]]).run()
+    assert not at.exception, f"adversary highlight raised: {at.exception}"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="wt.db not built yet")
 def test_app_highlight_and_matchup_runs():
     at = AppTest.from_file(str(APP), default_timeout=30).run()
     # The scatter highlight multiselect is the one whose label has the magnifier.

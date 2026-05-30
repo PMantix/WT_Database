@@ -8,6 +8,13 @@ One global filtered DataFrame drives every view. Add views by reading the same
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Make the `wtdb` package importable when running from a fresh checkout that
+# hasn't `pip install -e .`'d the project (e.g. Streamlit Community Cloud).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -543,7 +550,7 @@ CATEGORY_COLORS = {
 }
 
 
-def _quadrant_chart(board: pd.DataFrame, subject_name: str) -> None:
+def _quadrant_chart(board: pd.DataFrame, subject_name: str, highlight: list[str] | None = None) -> None:
     board = board.copy()
     board["Category"] = [f"{CATEGORIES[c][1]} {CATEGORIES[c][0]}" for c in board["category"]]
     board["fp"] = board["firepower_adv"].abs().clip(lower=0.05)
@@ -560,6 +567,21 @@ def _quadrant_chart(board: pd.DataFrame, subject_name: str) -> None:
     lim = max(1.0, float(board[["maneuver_adv", "energy_adv"]].abs().to_numpy().max()) * 1.15)
     fig.update_xaxes(range=[-lim, lim], zeroline=True, zerolinewidth=2)
     fig.update_yaxes(range=[-lim, lim], zeroline=True, zerolinewidth=2)
+
+    # Highlighted adversaries: dim the cloud, then pop + label the selected ones.
+    highlight = highlight or []
+    hl = board[board["name"].isin(highlight)]
+    if not hl.empty:
+        fig.update_traces(marker_opacity=0.22, selector=dict(mode="markers"))
+        for _, r in hl.iterrows():
+            fig.add_trace(go.Scatter(
+                x=[r["maneuver_adv"]], y=[r["energy_adv"]], mode="markers+text",
+                text=[r["name"]], textposition="top center", name=r["name"],
+                marker=dict(size=16, color=CATEGORY_COLORS[r["category"]],
+                            line=dict(width=2, color="white")),
+                showlegend=False,
+            ))
+
     # Your plane sits at the origin.
     fig.add_trace(go.Scatter(
         x=[0], y=[0], mode="markers+text", text=[f"⭐ {subject_name}"],
@@ -583,29 +605,68 @@ def threat_board_tab(filtered: pd.DataFrame, mode_col: str) -> None:
     full = get_data()
     names = sorted(full["name"].dropna().unique().tolist())
 
-    c1, c2 = st.columns([2, 2])
+    # Auto-sync from the Explore highlight selection (when it changes): first pick
+    # is "you", the rest become highlighted adversaries. Still editable below.
+    explore_hi = list(st.session_state.get("sc_hi", []))
+    if st.session_state.get("_tb_src") != explore_hi:
+        st.session_state["_tb_src"] = explore_hi
+        if explore_hi:
+            st.session_state["tb_subject"] = explore_hi[0]
+            st.session_state["tb_hi"] = explore_hi[1:]
+    if explore_hi:
+        extra = f" + {len(explore_hi) - 1} adversaries" if len(explore_hi) > 1 else ""
+        st.caption(f"↪ Synced from Explore: **{explore_hi[0]}** as your plane{extra}. Adjust below anytime.")
+
+    c1, c2, c3 = st.columns([2, 2, 1.3])
     subject_name = c1.selectbox("Your aircraft", names, key="tb_subject")
     use_mm = c2.checkbox(
-        "Competitors = matchmaking spread (your BR → +1.0)", value=False, key="tb_mm",
+        "Matchmaking spread (BR → +1.0)", value=False, key="tb_mm",
         help="On: auto-pick everything from your BR up to +1.0 (the RB uptier), all "
-             "nations. Off: use the current sidebar filter.",
+             "nations incl. your own. Off: use the current sidebar filter.",
+    )
+    group_variants = c3.checkbox(
+        "Group variants", value=False, key="tb_group",
+        help="Collapse variants of the same model (same name) into one representative.",
     )
 
     subject = full[full["name"] == subject_name].iloc[0]
     if use_mm:
         lo = subject[mode_col]
         pool = full[full[mode_col].between(lo, lo + 1.0)] if pd.notna(lo) else full
-        st.caption(f"Pool: BR {lo:.1f}–{lo + 1.0:.1f} ({MODE_LABELS[mode_col]}), all nations.")
+        pool_note = f"BR {lo:.1f}–{lo + 1.0:.1f} ({MODE_LABELS[mode_col]}), all nations"
     else:
         pool = filtered
-        st.caption(f"Pool: current sidebar filter ({len(pool)} aircraft).")
+        pool_note = "current sidebar filter"
+
+    if group_variants:
+        pool = (pool.sort_values(["is_premium", "br_rb", "game_id"])
+                    .drop_duplicates("name", keep="first"))
 
     board = threat_board(subject, pool)
+    if group_variants and not board.empty:
+        board = board[board["name"] != subject_name].reset_index(drop=True)
     if board.empty:
         st.info("No competitors in the pool. Widen the filter or enable the matchmaking spread.")
         return
+    st.caption(f"Pool: {pool_note} — {len(board)} competitors"
+               + (" (variants grouped)." if group_variants else "."))
 
-    _quadrant_chart(board, subject_name)
+    board_names = sorted(board["name"].unique().tolist())
+    # Keep only highlights that exist in the current board (pool/grouping may change).
+    st.session_state["tb_hi"] = [n for n in st.session_state.get("tb_hi", []) if n in board_names]
+    highlight = st.multiselect(
+        "🔍 Highlight adversaries (auto-filled from Explore; type to add/remove)",
+        board_names, key="tb_hi", max_selections=12,
+    )
+
+    _quadrant_chart(board, subject_name, highlight=highlight)
+
+    if highlight:
+        st.markdown("#### Selected adversaries")
+        for _, r in board[board["name"].isin(highlight)].drop_duplicates("name").iterrows():
+            label, emoji, _stance = CATEGORIES[r["category"]]
+            tac = f" — {r['tactic']}" if r["tactic"] else ""
+            st.markdown(f"- {emoji} **{r['name']}** · {label} (BR {r['br_rb']:.1f}){tac}")
 
     st.markdown("### Breakdown")
     for cat in CATEGORY_ORDER:
