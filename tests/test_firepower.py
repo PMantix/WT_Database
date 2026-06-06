@@ -40,11 +40,13 @@ def _fake_tree(root):
     fm.mkdir(parents=True)
     wp.mkdir(parents=True)
     wdir.mkdir(parents=True)
-    # A 12.7mm MG firing 13 rps, 0.04 kg rounds; and a 20mm cannon, 10 rps, 0.1 kg.
+    # A 12.7mm MG firing 13 rps, 0.04 kg, 880 m/s; and a 20mm cannon, 10 rps, 0.1 kg, 800 m/s.
     (wdir / "gunbrowning.blkx").write_text(json.dumps(
-        {"shotFreq": 13.0, "bullet": [{"caliber": 0.0127, "mass": 0.04}]}), encoding="utf-8")
+        {"shotFreq": 13.0, "bullet": [{"caliber": 0.0127, "mass": 0.04, "speed": 880.0}]}),
+        encoding="utf-8")
     (wdir / "cannon20.blkx").write_text(json.dumps(
-        {"shotFreq": 10.0, "bullet": [{"caliber": 0.020, "mass": 0.10}]}), encoding="utf-8")
+        {"shotFreq": 10.0, "bullet": [{"caliber": 0.020, "mass": 0.10, "speed": 800.0}]}),
+        encoding="utf-8")
     return fm
 
 
@@ -63,6 +65,12 @@ def test_inline_common_weapons(tmp_path):
     assert fp["total_ammo"] == 650
     # burst = 13*0.04 + 10*0.10 = 0.52 + 1.0 = 1.52
     assert fp["burst_mass_kg_s"] == pytest.approx(1.52, abs=1e-6)
+    # Quality split: cannon (20mm) vs MG (12.7mm).
+    assert fp["cannon_burst_kg_s"] == pytest.approx(1.0, abs=1e-6)
+    assert fp["mg_burst_kg_s"] == pytest.approx(0.52, abs=1e-6)
+    # Main gun = the 20mm: velocity 800, fire time = 150 rds / 10 rps = 15 s.
+    assert fp["main_gun_velocity_ms"] == 800
+    assert fp["main_gun_seconds"] == pytest.approx(15.0, abs=1e-6)
 
 
 def test_preset_reference_resolution(tmp_path):

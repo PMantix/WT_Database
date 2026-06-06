@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .models import ACQUISITION_TYPES, CLASSES
+from .models import ACQUISITION_TYPES, CLASSES, GUN_LAYOUTS
 
 
 class AircraftIn(BaseModel):
@@ -64,6 +64,11 @@ class AircraftIn(BaseModel):
     max_caliber_mm: float | None = Field(default=None, ge=0, le=500)
     burst_mass_kg_s: float | None = Field(default=None, ge=0, le=500)
     total_ammo: int | None = Field(default=None, ge=0)
+    cannon_burst_kg_s: float | None = Field(default=None, ge=0, le=500)
+    mg_burst_kg_s: float | None = Field(default=None, ge=0, le=500)
+    main_gun_velocity_ms: float | None = Field(default=None, ge=0, le=3000)
+    main_gun_seconds: float | None = Field(default=None, ge=0, le=600)
+    gun_layout: str | None = None
 
     notes: str | None = None
 
@@ -89,6 +94,16 @@ class AircraftIn(BaseModel):
         v = v.strip().lower()
         if v not in ACQUISITION_TYPES:
             raise ValueError(f"acquisition {v!r} not in {ACQUISITION_TYPES}")
+        return v
+
+    @field_validator("gun_layout")
+    @classmethod
+    def _check_layout(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if v not in GUN_LAYOUTS:
+            raise ValueError(f"gun_layout {v!r} not in {GUN_LAYOUTS}")
         return v
 
     @property
@@ -126,6 +141,7 @@ class AircraftOverride(BaseModel):
     turn_time_s: float | None = Field(default=None, ge=0, le=300)
     wing_rip_kmh: float | None = Field(default=None, ge=0, le=2000)
 
+    gun_layout: str | None = None
     armament: str | None = None
     notes: str | None = None
 
@@ -152,4 +168,14 @@ class AircraftOverride(BaseModel):
         v = v.strip().lower()
         if v not in ACQUISITION_TYPES:
             raise ValueError(f"acquisition {v!r} not in {ACQUISITION_TYPES}")
+        return v
+
+    @field_validator("gun_layout")
+    @classmethod
+    def _check_layout(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if v not in GUN_LAYOUTS:
+            raise ValueError(f"gun_layout {v!r} not in {GUN_LAYOUTS}")
         return v

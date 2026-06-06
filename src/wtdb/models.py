@@ -30,6 +30,9 @@ class Base(DeclarativeBase):
 # Controlled vocabularies — kept loose (validated in Pydantic) so the datamine
 # can introduce values we haven't seen without a migration.
 ACQUISITION_TYPES = ("tech_tree", "premium", "event", "squadron", "gift", "marketplace")
+# Gun placement (hand-annotated): nose/fuselage = centerline pinpoint (no
+# convergence); wing = needs convergence, spreads off-range; mixed = both.
+GUN_LAYOUTS = ("nose", "fuselage", "wing", "mixed")
 CLASSES = (
     "fighter",
     "interceptor",
@@ -109,6 +112,13 @@ class Aircraft(Base):
     max_caliber_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
     burst_mass_kg_s: Mapped[float | None] = mapped_column(Float, nullable=True)  # throw weight/sec
     total_ammo: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Firepower quality (so raw burst doesn't read as "strictly superior").
+    cannon_burst_kg_s: Mapped[float | None] = mapped_column(Float, nullable=True)  # burst from >=20mm
+    mg_burst_kg_s: Mapped[float | None] = mapped_column(Float, nullable=True)      # burst from <20mm
+    main_gun_velocity_ms: Mapped[float | None] = mapped_column(Float, nullable=True)  # loopy vs flat
+    main_gun_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)   # fire time, main gun
+    # Hand-annotated only (not in the datamine config): nose / wing / mixed.
+    gun_layout: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     # Personal layer --------------------------------------------------------
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

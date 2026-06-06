@@ -45,6 +45,15 @@ def test_schema_rejects_bad_class():
         AircraftIn(game_id="x", name="X", nation="usa", aircraft_class="spaceship", rank=1)
 
 
+def test_schema_gun_layout_validation():
+    ok = AircraftIn(game_id="x", name="X", nation="usa", aircraft_class="fighter",
+                    rank=1, gun_layout="Nose")
+    assert ok.gun_layout == "nose"  # normalized
+    with pytest.raises(ValidationError):
+        AircraftIn(game_id="x", name="X", nation="usa", aircraft_class="fighter",
+                   rank=1, gun_layout="turret")
+
+
 def test_schema_rejects_out_of_range_br():
     with pytest.raises(ValidationError):
         AircraftIn(game_id="x", name="X", nation="usa", aircraft_class="fighter", rank=1, br_rb=99)

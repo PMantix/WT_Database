@@ -49,7 +49,7 @@ def _is_offensive_gun(blk_ref: str, trigger: str) -> bool:
 
 @lru_cache(maxsize=2048)
 def _parse_gun(weapons_dir_str: str, filename: str) -> tuple[float, float, float] | None:
-    """Return (caliber_mm, shot_freq_rps, bullet_mass_kg) for a gun file, or None."""
+    """Return (caliber_mm, shot_freq_rps, bullet_mass_kg, muzzle_velocity_ms) or None."""
     path = Path(weapons_dir_str) / filename
     if not path.exists():
         return None
@@ -67,7 +67,9 @@ def _parse_gun(weapons_dir_str: str, filename: str) -> tuple[float, float, float
     mass = bullet.get("mass")
     if not isinstance(caliber_m, (int, float)) or not isinstance(mass, (int, float)):
         return None
-    return (round(caliber_m * 1000, 1), float(shot_freq), float(mass))
+    speed = bullet.get("speed")
+    velocity = float(speed) if isinstance(speed, (int, float)) else None
+    return (round(caliber_m * 1000, 1), float(shot_freq), float(mass), velocity)
 
 
 def _as_list(x):
@@ -124,10 +126,12 @@ def firepower_for(game_id: str, datamine_dir: Path = DATAMINE_DIR) -> dict | Non
         return None
 
     weapons_dir = str(datamine_dir / WEAPONS_SUBPATH)
-    burst = 0.0
+    burst = cannon_burst = mg_burst = 0.0
     total_ammo = 0
     cannons = mgs = 0
     max_cal = 0.0
+    # Track the heaviest-caliber gun (the "main gun") for velocity + fire time.
+    main = None  # (caliber, velocity, ammo_per_gun, rof)
     for w in _resolve_guns(fm):
         blk = w.get("blk", "")
         if not blk or not _is_offensive_gun(blk, w.get("trigger", "")):
@@ -135,21 +139,31 @@ def firepower_for(game_id: str, datamine_dir: Path = DATAMINE_DIR) -> dict | Non
         gun = _parse_gun(weapons_dir, _gun_filename(blk))
         if gun is None:
             continue
-        caliber_mm, shot_freq, mass = gun
-        burst += shot_freq * mass
-        total_ammo += int(w.get("bullets") or 0)
+        caliber_mm, shot_freq, mass, velocity = gun
+        b = shot_freq * mass
+        burst += b
+        ammo = int(w.get("bullets") or 0)
+        total_ammo += ammo
         max_cal = max(max_cal, caliber_mm)
         if caliber_mm >= CANNON_MIN_MM:
             cannons += 1
+            cannon_burst += b
         else:
             mgs += 1
+            mg_burst += b
+        if main is None or caliber_mm > main[0]:
+            main = (caliber_mm, velocity, ammo, shot_freq)
 
     gun_count = cannons + mgs
     if gun_count == 0:
         return {
             "gun_count": 0, "cannon_count": 0, "mg_count": 0,
             "max_caliber_mm": None, "burst_mass_kg_s": None, "total_ammo": None,
+            "cannon_burst_kg_s": None, "mg_burst_kg_s": None,
+            "main_gun_velocity_ms": None, "main_gun_seconds": None,
         }
+    # Seconds of continuous fire on the main gun (one gun's belt at its rate).
+    main_seconds = round(main[2] / main[3], 1) if main and main[3] else None
     return {
         "gun_count": gun_count,
         "cannon_count": cannons,
@@ -157,6 +171,10 @@ def firepower_for(game_id: str, datamine_dir: Path = DATAMINE_DIR) -> dict | Non
         "max_caliber_mm": round(max_cal, 1),
         "burst_mass_kg_s": round(burst, 3),
         "total_ammo": total_ammo or None,
+        "cannon_burst_kg_s": round(cannon_burst, 3) if cannons else 0.0,
+        "mg_burst_kg_s": round(mg_burst, 3) if mgs else 0.0,
+        "main_gun_velocity_ms": round(main[1]) if main and main[1] else None,
+        "main_gun_seconds": main_seconds,
     }
 
 

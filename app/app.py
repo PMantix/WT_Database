@@ -56,6 +56,10 @@ METRICS: dict[str, tuple[str, bool]] = {
     "wing_loading_kg_m2": ("Wing loading (kg/m²)", True),
     "power_to_weight_ratio": ("Power/thrust-to-weight", False),
     "burst_mass_kg_s": ("Firepower — burst mass (kg/s)", False),
+    "cannon_burst_kg_s": ("Cannon burst (kg/s)", False),
+    "mg_burst_kg_s": ("MG burst (kg/s)", False),
+    "main_gun_velocity_ms": ("Main-gun velocity (m/s)", False),
+    "main_gun_seconds": ("Main-gun fire time (s)", False),
     "max_caliber_mm": ("Max caliber (mm)", False),
     "gun_count": ("Gun count", False),
     "cannon_count": ("Cannon count", False),
@@ -77,6 +81,7 @@ SCATTER_PRESETS: dict[str, tuple[str, str]] = {
     "Roll rate vs Speed": ("max_speed_kmh", "roll_rate_deg_s"),
     "Firepower vs BR (burst mass)": ("br_rb", "burst_mass_kg_s"),
     "Firepower vs Speed": ("max_speed_kmh", "burst_mass_kg_s"),
+    "Cannon punch vs muzzle velocity": ("main_gun_velocity_ms", "cannon_burst_kg_s"),
     "Speed vs BR (fast for its BR?)": ("br_rb", "max_speed_kmh"),
     "Turn vs BR (best turner at each BR)": ("br_rb", "turn_time_s"),
     "Climb vs BR (best climber at each BR)": ("br_rb", "climb_rate_ms"),
@@ -426,7 +431,8 @@ def explore_plots(df: pd.DataFrame, mode_col: str) -> None:
         label_visibility="collapsed",
     )
 
-    color_opts = {"nation": "Nation", "aircraft_class": "Class", "Type": "Tech/Premium", "rank": "Rank"}
+    color_opts = {"nation": "Nation", "aircraft_class": "Class", "Type": "Tech/Premium",
+                  "rank": "Rank", "gun_layout": "Gun layout"}
 
     if chart.startswith("Scatter"):
         c1, c2, c3 = st.columns([2, 1, 1])
@@ -715,7 +721,8 @@ def aircraft_table(filtered: pd.DataFrame, mode_col: str, version: str) -> None:
     table_cols = [
         "name", "nation", "aircraft_class", "rank", "br_ab", "br_rb", "br_sb",
         "max_speed_kmh", "climb_rate_ms", "turn_time_s", "roll_rate_deg_s",
-        "wing_loading_kg_m2", "burst_mass_kg_s", "max_caliber_mm", "gun_count",
+        "wing_loading_kg_m2", "burst_mass_kg_s", "cannon_burst_kg_s",
+        "main_gun_velocity_ms", "max_caliber_mm", "gun_layout",
         "rp_cost", "repair_cost_rb", "notes",
     ]
     st.dataframe(
